@@ -117,8 +117,43 @@ char *argv[];
 		///----------------------BLOQUE DE CODIGO leer (enviar archivo) - TCP
 
 		if(!strcmp(argv[3],"l")){
-			printf("va bien lo de los arg\n");
-			sleep(5);
+			printf("Estoy dentro de lectura de fichero\n");
+
+			FILE *f;
+			
+			//Establecimiento de la ruta
+			char ruta[150];
+			memset (ruta, '\0', sizeof (ruta)); 	//reset ruta
+			sprintf(ruta,"ficherosTFTPclient/");
+			strcat(ruta,argv[4]);
+			printf("\n\nruta: %s\n\n",ruta);
+
+		    char mensaje[1024];
+   			memset (mensaje, '\0', sizeof (mensaje)); 	//reset mensaje
+
+	    	//char aux[1024];
+			//Abrimos fichero		
+			int nume; //NUMERO BITS LEIDOS	
+			if((f = fopen(ruta,"r")) == NULL) 
+			{
+	  			printf("404: Not found");
+			}else{ //200 OK
+			 	printf("200: OK");
+				//f = fopen(ruta,"r");
+				/*while(!feof(f)){
+					fgets(aux,1024,f);
+					strcat(mensaje,aux);
+				}*/
+				//CANTIDADDEBYTESLEIDOS=FREAD(CONTENIDO,NºBYTESXELEMENTO,NUMERODEELEMENTOS,FICHERO)
+				nume = fread(&mensaje,1,512,f);
+			}
+			//fgets(buf,1024,f);
+
+			printf("\n\nLEEMOS DE ARCHIVO %d: \n\n",nume);
+			//fread(&txt,1,512,f);
+			printf("%s\n",mensaje);
+
+			sleep(5);//sleep de comprobacion
 		}
 
 		///----------------------BLOQUE DE CODIGO EN EL QUE LEEN LAS ORDENES DE ARCHIVO
