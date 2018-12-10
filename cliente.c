@@ -117,31 +117,83 @@ char *argv[];
 		if(!strcmp(argv[3],"l")){
 			printf("Estoy dentro de lectura de fichero\n");
 
+			//variables a usar
+			char mensaje[1024],aux[1024];
+   			//memset (mensaje, '\0', sizeof (mensaje)); 	//reset mensaje
+   			//Memset (aux, '\0', sizeof (aux)); 	//reset aux
+			mensaje[0] = aux[0] = '\0';
+
+			//PRIMERO creamos la peticion de escritura
+
+			sprintf(mensaje,"02%s0octet0",argv[4]);
+			printf("%s\n", mensaje);
+
+			if (send(s, mensaje, TAM_BUFFER, 0) != TAM_BUFFER){ 								
+				fprintf(stderr, "%s: Connection aborted on error ",	argv[0]); 
+				fprintf(stderr, "on send number %d\n", i);
+				exit(1);
+			} 
+	        
+	        sleep(1);
+
+			i = recv(s, buf2, TAM_BUFFER, 0);
+		    
+		    if (i == -1) {
+		    	perror(argv[0]);
+				fprintf(stderr, "%s: error reading result\n", argv[0]);
+				exit(1);
+			}
+
+			printf("\n>>Respuesta del servidor: \n%s\n", buf2);
+
+
+			//COMENZAMOS A MANDAR EL ARCHIVO POR BLOQUES
+
 			FILE *f;
 			
 			//Establecimiento de la ruta
 			char ruta[150];
-			memset (ruta, '\0', sizeof (ruta)); 	//reset ruta
+			//memset (ruta, '\0', sizeof (ruta)); 	//reset ruta
+			ruta[0]='\0';
 			sprintf(ruta,"ficherosTFTPclient/");
 			strcat(ruta,argv[4]);
 			printf("\n\nruta: %s\n\n",ruta);
 
-		    char mensaje[1024];
-   			memset (mensaje, '\0', sizeof (mensaje)); 	//reset mensaje
 
 			//Abrimos fichero		
-			int nume = 512; //NUMERO BITS LEIDOS (inicializamos en 512 para entrar en el while)
 			if((f = fopen(ruta,"r")) == NULL) 
 			{
 	  			printf("404: Not found");
 			}else{ //200 OK
 			 	printf("200: OK");
+			 	int j = 0; //para contar las iteraciones
+ 				int nume = 512; //NUMERO BITS LEIDOS (inicializamos en 512 para entrar en el while)
 				while(nume == 512){
+					j++;
+					//memset (mensaje, '\0', sizeof (mensaje)); 	//reset mensaje
+		   			//memset (aux, '\0', sizeof (aux)); 	//reset aux
+
+		   			mensaje[0]='\0';
+		   			aux[0]='\0';
+				
+					//CANTIDADDEBYTESLEIDOS=FREAD(CONTENIDO,NºBYTESXELEMENTO,NUMERODEELEMENTOS,FICHERO)
+
 					nume = fread(&mensaje,1,512,f);	
 					printf("\n\nLEEMOS DE ARCHIVO %d: \n\n",nume);
-					printf("%s\n",mensaje);
-/*
-					//---------------------MANDAMOS EL MENSAJE
+					//printf("%s\n",mensaje);
+
+					//CREAMOS EL MENSAJE
+
+					//Como todo va sobre ruedas, vamos a darle formato
+					//strcopy(aux,"02")
+					sprintf(aux,"030%d",j);
+					printf("%s\n",aux);
+					sleep(3);
+					strcat(aux,mensaje);
+					printf("%s\n",aux);
+					sleep(3);
+
+					//MANDAMOS EL MENSAJE
 
 					if (send(s, mensaje, TAM_BUFFER, 0) != TAM_BUFFER){ 								
 						fprintf(stderr, "%s: Connection aborted on error ",	argv[0]); 
@@ -160,10 +212,8 @@ char *argv[];
 					}
 
 					printf("\n>>Respuesta del servidor: \n%s\n", buf2);
-				    fprintf(fp2,"\n%s\n\n",buf2);
-*/
+
 				}
-				//CANTIDADDEBYTESLEIDOS=FREAD(CONTENIDO,NºBYTESXELEMENTO,NUMERODEELEMENTOS,FICHERO)
 			}
 
 
