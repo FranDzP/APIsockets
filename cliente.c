@@ -83,13 +83,11 @@ char *argv[];
 
 	    errcode = getaddrinfo (argv[1], NULL, &hints, &res); //comprobación errores en la dirección
 	    if (errcode != 0){
-			fprintf(stderr, "%s: No es posible resolver la IP de %s\n",
-					argv[0], argv[1]);
+			fprintf(stderr, "%s: No es posible resolver la IP de %s\n",	argv[0], argv[1]);
 			exit(1);
-	        }
-	    else {
+	    }else{
 			servaddr_in.sin_addr = ((struct sockaddr_in *) res->ai_addr)->sin_addr; //direccion servidor
-		    }
+		}
 	    freeaddrinfo(res);
 		servaddr_in.sin_port = htons(PUERTO); //puerto de servidor
 
@@ -131,121 +129,52 @@ char *argv[];
 		    char mensaje[1024];
    			memset (mensaje, '\0', sizeof (mensaje)); 	//reset mensaje
 
-	    	//char aux[1024];
 			//Abrimos fichero		
-			int nume; //NUMERO BITS LEIDOS	
+			int nume = 512; //NUMERO BITS LEIDOS (inicializamos en 512 para entrar en el while)
 			if((f = fopen(ruta,"r")) == NULL) 
 			{
 	  			printf("404: Not found");
 			}else{ //200 OK
 			 	printf("200: OK");
-				//f = fopen(ruta,"r");
-				/*while(!feof(f)){
-					fgets(aux,1024,f);
-					strcat(mensaje,aux);
-				}*/
+				while(nume == 512){
+					nume = fread(&mensaje,1,512,f);	
+					printf("\n\nLEEMOS DE ARCHIVO %d: \n\n",nume);
+					printf("%s\n",mensaje);
+/*
+					//---------------------MANDAMOS EL MENSAJE
+
+					if (send(s, mensaje, TAM_BUFFER, 0) != TAM_BUFFER){ 								
+						fprintf(stderr, "%s: Connection aborted on error ",	argv[0]); 
+						fprintf(stderr, "on send number %d\n", i);
+						exit(1);
+					} 
+			        
+			        sleep(1);
+
+					i = recv(s, buf2, TAM_BUFFER, 0);
+				    
+				    if (i == -1) {
+				    	perror(argv[0]);
+						fprintf(stderr, "%s: error reading result\n", argv[0]);
+						exit(1);
+					}
+
+					printf("\n>>Respuesta del servidor: \n%s\n", buf2);
+				    fprintf(fp2,"\n%s\n\n",buf2);
+*/
+				}
 				//CANTIDADDEBYTESLEIDOS=FREAD(CONTENIDO,NºBYTESXELEMENTO,NUMERODEELEMENTOS,FICHERO)
-				nume = fread(&mensaje,1,512,f);
 			}
-			//fgets(buf,1024,f);
 
-			printf("\n\nLEEMOS DE ARCHIVO %d: \n\n",nume);
-			//fread(&txt,1,512,f);
-			printf("%s\n",mensaje);
 
+			fclose(f);
 			sleep(5);//sleep de comprobacion
 		}
 
-		///----------------------BLOQUE DE CODIGO EN EL QUE LEEN LAS ORDENES DE ARCHIVO
-
-		FILE *fp,*fp2;
-	    char mensaje[1024];
-	    char aux,*token,archivo[100];
-		const char delim[2] = " ";
-		const char delim2[2] = "\n";
-		int flag;
-
-		archivo[0]='\0';
-	    sprintf(archivo, "%u",ntohs(myaddr_in.sin_port));
-		strcat(archivo,".txt");
-
-	    fp = fopen(argv[4],"r");
-	    fp2 = fopen(archivo,"a"); 
-
-		while(!feof(fp)){
-
-			buf[0]='\0'; //RESETEAMOS
-			mensaje[0]='\0';
-
-		    flag=0;
-		    fgets(buf,1024,fp);
-
-			printf("\n\nLEEMOS DE ARCHIVO: %s\n\n",buf);
-			  
-			//OPCION LECTURA 1  
-
-			    for(i=0; buf[i]!='\n';i++);
-			    aux=buf[i-2];
-			    if(aux!='l') buf[i-3]='\0'; //SI NO ACABA EN "l" CORTA LA ULTIMA LETRA (YA QUE TODOS LOS OBJETOS QUE PIDE EL USUARIO ACABAN EN .HTML)
-			    else buf[i]='\0'; //PARA ELIMINAR EL SALTO DE LINEA DE LA CADENA
-
-			printf("\nAQUI ESTOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOY en TCP\n\n"); 
-
-			//Crear mensaje
-
-		    if(aux=='k') sprintf(mensaje,"%s HTTP/1.1 <CR><LF>\nHost: olivo <CR><LF>\nConnection: Keep-alive <CR><LF>\n<CR><LF>",buf);
-		    else sprintf(mensaje,"%s HTTP/1.1 <CR><LF>\nHost: olivo <CR><LF>\n<CR><LF>",buf);
 
 
-			//OPCION LECTURA 2
-			/*
-					token = strtok(buf,delim);
-			   	strcpy(buf3,buf);
-			   	strcat(buf3," ");
-					token = strtok(NULL,delim);
-			   	strcat(buf3,token);
-					token = strtok(NULL,delim);
-			    printf("\n>Letra:%s<<<\n",token);
+			
 
-						if(!strcmp(token,"c")){
-							sprintf(mensaje,"%s HTTP/1.1 <CR><LF>\nHost: olivo <CR><LF\n<CR><LF>",buf);
-			        buf3[sizeof(buf3)-3]='\0';
-			        printf("\n(c)buf3=%s\n",buf3);
-						}
-						if(!strcmp(token,"k") || !strcmp(token,"k\n")){
-							sprintf(mensaje,"%s HTTP/1.1 <CR><LF>\nHost: olivo <CR><LF>\nConnection: Keep-alive <CR><LF>\n<CR><LF>",buf3);
-			        buf3[sizeof(buf3)-3]='\0';
-			        printf("\n(k)buf3=%s\n",buf3);
-			      }
-			      else sprintf(mensaje,"%s HTTP/1.1 <CR><LF>\nHost: olivo <CR><LF\n<CR><LF>",buf3);
-
-			*/
-			    //printf("\n>Mensaje enviado:  %s\n",mensaje);
-
-
-
-			//---------------------MANDAMOS EL MENSAJE
-
-			if (send(s, mensaje, TAM_BUFFER, 0) != TAM_BUFFER){ 								
-				fprintf(stderr, "%s: Connection aborted on error ",	argv[0]); 
-				fprintf(stderr, "on send number %d\n", i);
-				exit(1);
-			} 
-	        
-	        sleep(1);
-
-			i = recv(s, buf2, TAM_BUFFER, 0);
-		    
-		    if (i == -1) {
-		    	perror(argv[0]);
-				fprintf(stderr, "%s: error reading result\n", argv[0]);
-				exit(1);
-			}
-
-			printf("\n>>Respuesta del servidor: \n%s\n", buf2);
-		    fprintf(fp2,"\n%s\n\n",buf2);
-
-		}//FIN WHILE
 		
 		if (shutdown(s, 1) == -1) { //CIERRA LA CONEXION
 			perror(argv[0]);
@@ -253,8 +182,6 @@ char *argv[];
 			exit(1);
 		}
 
-		fclose(fp);
-		fclose(fp2);
 
 		time(&timevar); //ESCRIBE EL TIEMPO SOBRE TIMEVAR PARA INDICAR A QUE HORA SE HA DESCONECTADO EN UN PRINTF
 		printf("All done at %s", (char *)ctime(&timevar));
