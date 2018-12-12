@@ -356,6 +356,10 @@ void serverTCP(int s, struct sockaddr_in clientaddr_in)
 	fprintf(fp,">>Host: %s,\tDireccion IP: %s,\tPuerto: %u,\tProtocolo: TCP,\tA las: %s\n",
 		hostname, inet_ntoa(clientaddr_in.sin_addr), ntohs(clientaddr_in.sin_port), (char *) ctime(&timevar));		
 	
+	//ARCHIVO A USAR
+	FILE *f;
+	char ruta[150];
+	memset (buf, '\0', sizeof (ruta)); 	//reset ruta
 
 
 	while (len = recv(s, buf, TAM_BUFFER, 0)) {
@@ -388,19 +392,22 @@ void serverTCP(int s, struct sockaddr_in clientaddr_in)
 
 		///////AQUI COMENZAMOS TRATAMIENTO DEL MENSAJE/////////
 				
-
+		//VARIABLES A USAR
+		//FILE *f;
+		//char ruta[150];
 		char codigo[40];
-		int it,it2 = 0;
+		int it,it2;
 		int tammen;
 		char archivo[100], mensaje[1024], ka[150];
-		char ruta[150];
 		/*mensaje[0]='\0'; //RESETEAMOS
 		archivo[0]='\0';
 		ruta[0]='\0';*/
 
 		memset (mensaje,'\0' , sizeof (mensaje));
 		memset (archivo, '\0', sizeof (archivo));
-		memset (ruta, '\0', sizeof (ruta));
+		//memset (ruta, '\0', sizeof (ruta));
+
+
 
 		switch(buf[1])
 		{
@@ -409,7 +416,8 @@ void serverTCP(int s, struct sockaddr_in clientaddr_in)
 				//sprintf(buf2,"He recibido que quieren escribir.\n");
 				//02fichero.txt0octet0 tengo que quitar:|0octet0| = 6 +1 xq es de 0 a n-1 
 				tammen = strlen(buf);
-				for (int it = 2; it < tammen-7; ++it)
+				it2 = 0;
+				for (it = 2; it < tammen-7; ++it)
 				{
 					buf2[it2] = buf[it];
 					it2++;
@@ -424,16 +432,25 @@ void serverTCP(int s, struct sockaddr_in clientaddr_in)
 					sprintf(buf2,"0506Error: No puede sobreescribir.0\n");
 				}else{
 					//Mensaje confirmación
-					sprintf(buf2,"04bloque0");
+					//sprintf(buf2,"04bloque0");
 				}
 
 			break;
 
 			case '3':	//SERVIDOR RECIBIENDO DATOS DEL CLIENTE
 
+				sprintf(buf2,"Estamos escribiendo en %s.\n",ruta);
+				tammen = strlen(buf);
 
-
-
+				if((f = fopen(ruta,"a")) == NULL){
+					perror("Fallo al crear/escribir documento.");
+				}else{
+					for (it = 4; it < tammen; ++it)
+					{
+						fputc(buf[it],f);
+					}
+				}
+				fclose(f);
 
 
 			break;
@@ -443,6 +460,7 @@ void serverTCP(int s, struct sockaddr_in clientaddr_in)
 
 
 		///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+     	memset (buf, '\0', sizeof (buf));
 
 
 

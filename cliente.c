@@ -114,8 +114,8 @@ char *argv[];
 
 		///----------------------BLOQUE DE CODIGO leer (enviar archivo) - TCP
 
-		if(!strcmp(argv[3],"l")){
-			printf("Estoy dentro de lectura de fichero\n");
+		if(!strcmp(argv[3],"e")){
+			printf("Estoy dentro de escritura de fichero\n");
 
 			//variables a usar
 			char mensaje[1024],aux[1024];
@@ -170,11 +170,11 @@ char *argv[];
  				int nume = 512; //NUMERO BITS LEIDOS (inicializamos en 512 para entrar en el while)
 				while(nume == 512){
 					j++;
-					//memset (mensaje, '\0', sizeof (mensaje)); 	//reset mensaje
-		   			//memset (aux, '\0', sizeof (aux)); 	//reset aux
+					memset (mensaje, '\0', sizeof (mensaje)); 	//reset mensaje
+		   			memset (aux, '\0', sizeof (aux)); 	//reset aux
 
-		   			mensaje[0]='\0';
-		   			aux[0]='\0';
+		   			//mensaje[0]='\0';
+		   			//aux[0]='\0';
 				
 					//CANTIDADDEBYTESLEIDOS=FREAD(CONTENIDO,NºBYTESXELEMENTO,NUMERODEELEMENTOS,FICHERO)
 
@@ -185,17 +185,18 @@ char *argv[];
 					//CREAMOS EL MENSAJE
 
 					//Como todo va sobre ruedas, vamos a darle formato
-					//strcopy(aux,"02")
 					sprintf(aux,"030%d",j);
 					printf("%s\n",aux);
 					sleep(3);
 					strcat(aux,mensaje);
 					printf("%s\n",aux);
-					sleep(3);
+					sleep(1);
 
 					//MANDAMOS EL MENSAJE
+					memset (buf, '\0', sizeof (buf)); 	//reset mensaje
+					strcpy(buf,aux);
 
-					if (send(s, mensaje, TAM_BUFFER, 0) != TAM_BUFFER){ 								
+					if (send(s, buf, TAM_BUFFER, 0) != TAM_BUFFER){ 								
 						fprintf(stderr, "%s: Connection aborted on error ",	argv[0]); 
 						fprintf(stderr, "on send number %d\n", i);
 						exit(1);
