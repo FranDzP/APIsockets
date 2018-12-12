@@ -40,6 +40,9 @@ extern int errno;
 
 //PROPIAS
 int notImplement501(char * string);
+//crearMensaje(char * codigo);
+int existe(char *f);
+
 //
  
 void serverTCP(int s, struct sockaddr_in peeraddr_in);
@@ -357,7 +360,7 @@ void serverTCP(int s, struct sockaddr_in clientaddr_in)
 
 	while (len = recv(s, buf, TAM_BUFFER, 0)) {
 		if (len == -1) errout(hostname); /* error from recv */
-			/* The reason this while loop exists is that there
+			/* The reason this while loop existe is that there
 			 * is a remote possibility of the above recv returning
 			 * less than TAM_BUFFER bytes.  This is because a recv returns
 			 * as soon as there is some data, and will not wait for
@@ -382,10 +385,13 @@ void serverTCP(int s, struct sockaddr_in clientaddr_in)
 			 * request that a real server might do.
 			 */
 		sleep(1);
-		///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+		///////AQUI COMENZAMOS TRATAMIENTO DEL MENSAJE/////////
 				
+
 		char codigo[40];
-		int it,it2;
+		int it,it2 = 0;
+		int tammen;
 		char archivo[100], mensaje[1024], ka[150];
 		char ruta[150];
 		/*mensaje[0]='\0'; //RESETEAMOS
@@ -396,92 +402,44 @@ void serverTCP(int s, struct sockaddr_in clientaddr_in)
 		memset (archivo, '\0', sizeof (archivo));
 		memset (ruta, '\0', sizeof (ruta));
 
-
-
-		sprintf(ruta,"www/");
-		printf("\n\nruta: %s\n\n",ruta); 
-
-		//KEEP-ALIVE
-		char KA[] = {"keep-alive"};
-		it2 = 0;
-		for(it=0;buf[it]!='\0';it++)
+		switch(buf[1])
 		{
-			if(buf[it] == '\n') it2++;
-		}
+			case '2':	//CLIENTE QUIERE ESCRIBIR
 
-		if(it2==3){
-			sprintf(ka,"\nConnection: keep-alive<CR><LF>\n");
-		}else if(it2==2){
-			sprintf(ka,"\nConnection: close<CR><LF>\n");
-		}
-
-
-		for(it=0;buf[it]!='/';it++);
-
-		for(it2=it;buf[it2]!=' ';it2++);
-
-		int k=0;
-		for(it=it+1;it!=it2;it++){
-			archivo[k] = buf[it];
-			k++;
-		}
-		printf("\nVALOOOOR archivo: ->%s<-\n\n",archivo);
-
-
-
-		strcat(ruta,archivo);
-
-
-
-		printf("\nVALOOOOR ruta: ->%s<-\n\n",ruta);
-
-		//501 Not Implemented
-		if(notImplement501(buf) == -1){
-		  	sprintf(codigo,"501: Not implemented");
-			sprintf(buf2,"HTTP/1.1 %s<CR><LF>\nServer: Servidor del Francho y del Jisu<CR><LF>%s<CR><LF>\n<html><body><h1>501 Not Implemented</h1></body></html>",codigo,ka);
-		}else{
-
-
-			FILE *fp2;
-			char aux[1024];
-
-			//404 Not Found
-			if((fp2 = fopen(ruta,"r")) == NULL) 
-			{
-				sprintf(codigo,"404: Not found");
-				sprintf(buf2,"HTTP/1.1 %s<CR><LF>\nServer: Servidor del Francho y del Jisu<CR><LF>%s<CR><LF>\n<html><body><h1>404 Not Found</h1></body></html>",codigo,ka);
-			}else{ //200 OK
-			 	sprintf(codigo,"200: OK");
-				fp2 = fopen(ruta,"r");
-				while(!feof(fp2)){
-					fgets(aux,1024,fp2);
-					strcat(mensaje,aux);
-					sprintf(buf2,"HTTP/1.1 %s<CR><LF>\nServer: Servidor del Francho y del Jisu<CR><LF>%s<CR><LF>\n%s",codigo,ka,mensaje);
+				//sprintf(buf2,"He recibido que quieren escribir.\n");
+				//02fichero.txt0octet0 tengo que quitar:|0octet0| = 6 +1 xq es de 0 a n-1 
+				tammen = strlen(buf);
+				for (int it = 2; it < tammen-7; ++it)
+				{
+					buf2[it2] = buf[it];
+					it2++;
 				}
-			}
+				//tenemos el fichero en buf2
+				//Establecemos ruta:
+				sprintf(ruta,"ficherosTFTPserver/");
+				strcat(ruta,buf2);
+
+				if(existe(ruta)){
+					//AQUíIMPLEMENTAR ERROR SOBREESCRITURA
+					sprintf(buf2,"0506Error: No puede sobreescribir.0\n");
+				}else{
+					//Mensaje confirmación
+					sprintf(buf2,"04bloque0");
+				}
+
+			break;
+
+			case '3':	//SERVIDOR RECIBIENDO DATOS DEL CLIENTE
+
+
+
+
+
+
+			break;
+
 		}
 
-		if(!strcmp(codigo,"200: OK"))fprintf(fp,"Objeto solicitado: %s -> Todo correcto\n", ruta);
-		else fprintf(fp,"Objeto solicitado: %s -> Error: %s\n", ruta, codigo);
-
-
-		/*
-		Petición del cliente al servidor:
-		GET /ejemplo.html HTTP/1.1<CR><LF>
-		Host: url_servidor<CR><LF>
-		Connection: keep-alive<CR><LF>
-		<CR><LF>
-
-		Petición del cliente al servidor:
-		DAME /index.htm HTTP/1.1<CR><LF>
-		Host: url_servidor<CR><LF>
-		<CR><LF>
-		*/
-
-
-
-
-		memset (buf, '\0', sizeof (buf));
 
 
 		///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -724,6 +682,13 @@ int notImplement501(char * string){
 }
 
 
-
+int existe(char *r)
+{
+	FILE *f;
+  if((f = fopen(r, "r")) == NULL) return 0;
+  /* Si existe, cerramos */
+  fclose(f);
+  return 1;
+}
 
 
