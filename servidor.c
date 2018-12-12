@@ -123,14 +123,14 @@ char *argv[];
 		perror(argv[0]);
 		printf("%s: unable to create socket UDP\n", argv[0]);
 		exit(1);
-	   }
+	}
 
 	/* Bind the server's address to the socket. */
 	if (bind(s_UDP, (struct sockaddr *) &myaddr_in, sizeof(struct sockaddr_in)) == -1) {
 		perror(argv[0]);
 		printf("%s: unable to bind address UDP\n", argv[0]);
 		exit(1);
-	    }
+    }
 
 		/* Now, all the initialization of the server is
 		 * complete, and any user errors will have already
@@ -147,139 +147,138 @@ char *argv[];
 	setpgrp();
 
 	switch (fork()) {
-	case -1:		/* Unable to fork, for some reason. */
-		perror(argv[0]);
-		fprintf(stderr, "%s: unable to fork daemon\n", argv[0]);
-		exit(1);
+		case -1:		/* Unable to fork, for some reason. */
+			perror(argv[0]);
+			fprintf(stderr, "%s: unable to fork daemon\n", argv[0]);
+			exit(1);
 
-	case 0:     /* The child process (daemon) comes here. */
+		case 0:     /* The child process (daemon) comes here. */
 
-			/* Close stdin and stderr so that they will not
-			 * be kept open.  Stdout is assumed to have been
-			 * redirected to some logging file, or /dev/null.
-			 * From now on, the daemon will not report any
-			 * error messages.  This daemon will loop forever,
-			 * waiting for connections and forking a child
-			 * server to handle each one.
-			 */
-		fclose(stdin);
-		fclose(stderr);
+				/* Close stdin and stderr so that they will not
+				 * be kept open.  Stdout is assumed to have been
+				 * redirected to some logging file, or /dev/null.
+				 * From now on, the daemon will not report any
+				 * error messages.  This daemon will loop forever,
+				 * waiting for connections and forking a child
+				 * server to handle each one.
+				 */
+			fclose(stdin);
+			fclose(stderr);
 
-			/* Set SIGCLD to SIG_IGN, in order to prevent
-			 * the accumulation of zombies as each child
-			 * terminates.  This means the daemon does not
-			 * have to make wait calls to clean them up.
-			 */
-		if ( sigaction(SIGCHLD, &sa, NULL) == -1) {
-            perror(" sigaction(SIGCHLD)");
-            fprintf(stderr,"%s: unable to register the SIGCHLD signal\n", argv[0]);
-            exit(1);
-            }
-            
-		    /* Registrar SIGTERM para la finalizacion ordenada del programa servidor */
-        vec.sa_handler = (void *) finalizar;
-        vec.sa_flags = 0;
-        if ( sigaction(SIGTERM, &vec, (struct sigaction *) 0) == -1) {
-            perror(" sigaction(SIGTERM)");
-            fprintf(stderr,"%s: unable to register the SIGTERM signal\n", argv[0]);
-            exit(1);
-            }
-        
-		while (!FIN) {
-            /* Meter en el conjunto de sockets los sockets UDP y TCP */
-            FD_ZERO(&readmask);
-            FD_SET(ls_TCP, &readmask);
-            FD_SET(s_UDP, &readmask);
-            /* 
-            Seleccionar el descriptor del socket que ha cambiado. Deja una marca en 
-            el conjunto de sockets (readmask)
-            */ 
-    	    if (ls_TCP > s_UDP) s_mayor=ls_TCP;
-    		else s_mayor=s_UDP;
+				/* Set SIGCLD to SIG_IGN, in order to prevent
+				 * the accumulation of zombies as each child
+				 * terminates.  This means the daemon does not
+				 * have to make wait calls to clean them up.
+				 */
+			if ( sigaction(SIGCHLD, &sa, NULL) == -1) {
+	            perror(" sigaction(SIGCHLD)");
+	            fprintf(stderr,"%s: unable to register the SIGCHLD signal\n", argv[0]);
+	            exit(1);
+	        }
+	            
+			    /* Registrar SIGTERM para la finalizacion ordenada del programa servidor */
+	        vec.sa_handler = (void *) finalizar;
+	        vec.sa_flags = 0;
+	        if ( sigaction(SIGTERM, &vec, (struct sigaction *) 0) == -1) {
+	            perror(" sigaction(SIGTERM)");
+	            fprintf(stderr,"%s: unable to register the SIGTERM signal\n", argv[0]);
+	            exit(1);
+	        }
+	        
+			while (!FIN) {
+	            /* Meter en el conjunto de sockets los sockets UDP y TCP */
+	            FD_ZERO(&readmask);
+	            FD_SET(ls_TCP, &readmask);
+	            FD_SET(s_UDP, &readmask);
+	            /* 
+	            Seleccionar el descriptor del socket que ha cambiado. Deja una marca en 
+	            el conjunto de sockets (readmask)
+	            */ 
+	    	    if (ls_TCP > s_UDP) s_mayor=ls_TCP;
+	    		else s_mayor=s_UDP;
 
-            if ( (numfds = select(s_mayor+1, &readmask, (fd_set *)0, (fd_set *)0, NULL)) < 0) {
-                if (errno == EINTR) {
-                    FIN=1;
-		            close (ls_TCP);
-		            close (s_UDP);
-                    perror("\nFinalizando el servidor. SeÃal recibida en elect\n "); 
-                }
-            }
-           else { 
+	            if ( (numfds = select(s_mayor+1, &readmask, (fd_set *)0, (fd_set *)0, NULL)) < 0) {
+	                if (errno == EINTR) {
+	                    FIN=1;
+			            close (ls_TCP);
+			            close (s_UDP);
+	                    perror("\nFinalizando el servidor. SeÃal recibida en elect\n "); 
+	                }
+	            }else{ 
 
-                /* Comprobamos si el socket seleccionado es el socket TCP */
-                if (FD_ISSET(ls_TCP, &readmask)) {
-                    /* Note that addrlen is passed as a pointer
-                     * so that the accept call can return the
-                     * size of the returned address.
-                     */
-    				/* This call will block until a new
-    				 * connection arrives.  Then, it will
-    				 * return the address of the connecting
-    				 * peer, and a new socket descriptor, s,
-    				 * for that connection.
-    				 */
-    			s_TCP = accept(ls_TCP, (struct sockaddr *) &clientaddr_in, &addrlen);
-    			if (s_TCP == -1) exit(1);
-    			switch (fork()) {
-        			case -1:	/* Can't fork, just exit. */
-        				exit(1);
-        			case 0:		/* Child process comes here. */
-                    			close(ls_TCP); /* Close the listen socket inherited from the daemon. */
-        				serverTCP(s_TCP, clientaddr_in);
-        				exit(0);
-        			default:	/* Daemon process comes here. */
-        					/* The daemon needs to remember
-        					 * to close the new accept socket
-        					 * after forking the child.  This
-        					 * prevents the daemon from running
-        					 * out of file descriptor space.  It
-        					 * also means that when the server
-        					 * closes the socket, that it will
-        					 * allow the socket to be destroyed
-        					 * since it will be the last close.
-        					 */
-        				close(s_TCP);
-        			}
-             } /* De TCP*/
-          /* Comprobamos si el socket seleccionado es el socket UDP */
-          if (FD_ISSET(s_UDP, &readmask)) {
-                /* This call will block until a new
-                * request arrives.  Then, it will
-                * return the address of the client,
-                * and a buffer containing its request.
-                * BUFFERSIZE - 1 bytes are read so that
-                * room is left at the end of the buffer
-                * for a null character.
-                */
-		
-		memset(buffer, '\0',sizeof(buffer));					
+	                /* Comprobamos si el socket seleccionado es el socket TCP */
+	                if (FD_ISSET(ls_TCP, &readmask)) {
+	                    /* Note that addrlen is passed as a pointer
+	                     * so that the accept call can return the
+	                     * size of the returned address.
+	                     */
+	    				/* This call will block until a new
+	    				 * connection arrives.  Then, it will
+	    				 * return the address of the connecting
+	    				 * peer, and a new socket descriptor, s,
+	    				 * for that connection.
+	    				 */
+		    			s_TCP = accept(ls_TCP, (struct sockaddr *) &clientaddr_in, &addrlen);
+		    			if (s_TCP == -1) exit(1);
+		    			switch (fork()) {
+		        			case -1:	/* Can't fork, just exit. */
+		        				exit(1);
+		        			case 0:		/* Child process comes here. */
+		                    			close(ls_TCP); /* Close the listen socket inherited from the daemon. */
+		        				serverTCP(s_TCP, clientaddr_in);
+		        				exit(0);
+		        			default:	/* Daemon process comes here. */
+		    					/* The daemon needs to remember
+		    					 * to close the new accept socket
+		    					 * after forking the child.  This
+		    					 * prevents the daemon from running
+		    					 * out of file descriptor space.  It
+		    					 * also means that when the server
+		    					 * closes the socket, that it will
+		    					 * allow the socket to be destroyed
+		    					 * since it will be the last close.
+		    					 */
+		        				close(s_TCP);
+		        		}
+	             	} /* De TCP*/
+		          	/* Comprobamos si el socket seleccionado es el socket UDP */
+		          	if (FD_ISSET(s_UDP, &readmask)) {
+		                /* This call will block until a new
+		                * request arrives.  Then, it will
+		                * return the address of the client,
+		                * and a buffer containing its request.
+		                * BUFFERSIZE - 1 bytes are read so that
+		                * room is left at the end of the buffer
+		                * for a null character.
+		                */
+				
+					memset(buffer, '\0',sizeof(buffer));					
 
 
-                cc = recvfrom(s_UDP, buffer, BUFFERSIZE - 1, 0,
-                   (struct sockaddr *)&clientaddr_in, &addrlen);
-                if ( cc == -1) {
-                    perror(argv[0]);
-                    printf("%s: recvfrom error\n", argv[0]);
-                    exit (1);
-                    }
-                /* Make sure the message received is
-                * null terminated.
-                */
-                buffer[cc]='\0';
+	                cc = recvfrom(s_UDP, buffer, BUFFERSIZE - 1, 0,
+	                   (struct sockaddr *)&clientaddr_in, &addrlen);
+	                if ( cc == -1) {
+	                    perror(argv[0]);
+	                    printf("%s: recvfrom error\n", argv[0]);
+	                    exit (1);
+	                }
+	                /* Make sure the message received is
+	                * null terminated.
+	                */
+	                buffer[cc]='\0';
 
-                serverUDP (s_UDP, buffer, clientaddr_in);
-                }
-          }
-		}   /* Fin del bucle infinito de atención a clientes */
-        /* Cerramos los sockets UDP y TCP */
-        close(ls_TCP);
-        close(s_UDP);
-    
-        printf("\nFin de programa servidor!\n");
-        
-	default:		/* Parent process comes here. */
-		exit(0);
+	                serverUDP (s_UDP, buffer, clientaddr_in);
+	                }
+	          	}
+			}   /* Fin del bucle infinito de atención a clientes */
+	        /* Cerramos los sockets UDP y TCP */
+	        close(ls_TCP);
+	        close(s_UDP);
+	    
+	        printf("\nFin de programa servidor!\n");
+	        
+		default:		/* Parent process comes here. */
+			exit(0);
 	}
 
 }
@@ -318,9 +317,8 @@ void serverTCP(int s, struct sockaddr_in clientaddr_in)
 	 * daemon loop above.
 	 */
 	 
-     status = getnameinfo((struct sockaddr *)&clientaddr_in,sizeof(clientaddr_in),
-                           hostname,MAXHOST,NULL,0,0);
-     if(status){
+    status = getnameinfo((struct sockaddr *)&clientaddr_in,sizeof(clientaddr_in),hostname,MAXHOST,NULL,0,0);
+    if(status){
            	/* The information is unavailable for the remote
 			 * host.  Just format its internet address to be
 			 * printed out in the logging information.  The
@@ -329,7 +327,7 @@ void serverTCP(int s, struct sockaddr_in clientaddr_in)
 			 /* inet_ntop para interoperatividad con IPv6 */
             if (inet_ntop(AF_INET, &(clientaddr_in.sin_addr), hostname, MAXHOST) == NULL)
             	perror(" inet_ntop \n");
-             }
+            }
     /* Log a startup message. */
     time (&timevar);
 		/* The port number must be converted first to host byte
@@ -384,118 +382,116 @@ void serverTCP(int s, struct sockaddr_in clientaddr_in)
 			 * request that a real server might do.
 			 */
 		sleep(1);
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-		
-char codigo[40];
-int it,it2;
-char archivo[100], mensaje[1024], ka[150];
-char ruta[150];
-	/*mensaje[0]='\0'; //RESETEAMOS
-	archivo[0]='\0';
-	ruta[0]='\0';*/
+		///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+				
+		char codigo[40];
+		int it,it2;
+		char archivo[100], mensaje[1024], ka[150];
+		char ruta[150];
+		/*mensaje[0]='\0'; //RESETEAMOS
+		archivo[0]='\0';
+		ruta[0]='\0';*/
 
-      memset (mensaje,'\0' , sizeof (mensaje));
-      memset (archivo, '\0', sizeof (archivo));
-      memset (ruta, '\0', sizeof (ruta));
-
-
-
-sprintf(ruta,"www/");
- printf("\n\nruta: %s\n\n",ruta); 
-
-//KEEP-ALIVE
-	char KA[] = {"keep-alive"};
-	it2 = 0;
-	for(it=0;buf[it]!='\0';it++)
-	{
-		if(buf[it] == '\n') it2++;
-	}
-
-	if(it2==3){
-		sprintf(ka,"\nConnection: keep-alive<CR><LF>\n");
-	}else if(it2==2){
-		sprintf(ka,"\nConnection: close<CR><LF>\n");
-	}
-
-
-for(it=0;buf[it]!='/';it++);
-
-for(it2=it;buf[it2]!=' ';it2++);
-
-int k=0;
-for(it=it+1;it!=it2;it++){
-	archivo[k] = buf[it];
-	k++;
-}
-printf("\nVALOOOOR archivo: ->%s<-\n\n",archivo);
+		memset (mensaje,'\0' , sizeof (mensaje));
+		memset (archivo, '\0', sizeof (archivo));
+		memset (ruta, '\0', sizeof (ruta));
 
 
 
-strcat(ruta,archivo);
+		sprintf(ruta,"www/");
+		printf("\n\nruta: %s\n\n",ruta); 
 
-
-
-printf("\nVALOOOOR ruta: ->%s<-\n\n",ruta);
-
-//501 Not Implemented
-if(notImplement501(buf) == -1){
-  sprintf(codigo,"501: Not implemented");
-	sprintf(buf2,"HTTP/1.1 %s<CR><LF>\nServer: Servidor del Francho y del Jisu<CR><LF>%s<CR><LF>\n<html><body><h1>501 Not Implemented</h1></body></html>",codigo,ka);
-}else
-{
-
-
-		FILE *fp2;
-		char aux[1024];
-
-		//404 Not Found
-		if((fp2 = fopen(ruta,"r")) == NULL) 
+		//KEEP-ALIVE
+		char KA[] = {"keep-alive"};
+		it2 = 0;
+		for(it=0;buf[it]!='\0';it++)
 		{
-  		sprintf(codigo,"404: Not found");
-			sprintf(buf2,"HTTP/1.1 %s<CR><LF>\nServer: Servidor del Francho y del Jisu<CR><LF>%s<CR><LF>\n<html><body><h1>404 Not Found</h1></body></html>",codigo,ka);
-		}else{ //200 OK
-		 	sprintf(codigo,"200: OK");
-			fp2 = fopen(ruta,"r");
-			while(!feof(fp2)){
-				fgets(aux,1024,fp2);
-				strcat(mensaje,aux);
-				sprintf(buf2,"HTTP/1.1 %s<CR><LF>\nServer: Servidor del Francho y del Jisu<CR><LF>%s<CR><LF>\n%s",codigo,ka,mensaje);
+			if(buf[it] == '\n') it2++;
+		}
+
+		if(it2==3){
+			sprintf(ka,"\nConnection: keep-alive<CR><LF>\n");
+		}else if(it2==2){
+			sprintf(ka,"\nConnection: close<CR><LF>\n");
+		}
+
+
+		for(it=0;buf[it]!='/';it++);
+
+		for(it2=it;buf[it2]!=' ';it2++);
+
+		int k=0;
+		for(it=it+1;it!=it2;it++){
+			archivo[k] = buf[it];
+			k++;
+		}
+		printf("\nVALOOOOR archivo: ->%s<-\n\n",archivo);
+
+
+
+		strcat(ruta,archivo);
+
+
+
+		printf("\nVALOOOOR ruta: ->%s<-\n\n",ruta);
+
+		//501 Not Implemented
+		if(notImplement501(buf) == -1){
+		  	sprintf(codigo,"501: Not implemented");
+			sprintf(buf2,"HTTP/1.1 %s<CR><LF>\nServer: Servidor del Francho y del Jisu<CR><LF>%s<CR><LF>\n<html><body><h1>501 Not Implemented</h1></body></html>",codigo,ka);
+		}else{
+
+
+			FILE *fp2;
+			char aux[1024];
+
+			//404 Not Found
+			if((fp2 = fopen(ruta,"r")) == NULL) 
+			{
+				sprintf(codigo,"404: Not found");
+				sprintf(buf2,"HTTP/1.1 %s<CR><LF>\nServer: Servidor del Francho y del Jisu<CR><LF>%s<CR><LF>\n<html><body><h1>404 Not Found</h1></body></html>",codigo,ka);
+			}else{ //200 OK
+			 	sprintf(codigo,"200: OK");
+				fp2 = fopen(ruta,"r");
+				while(!feof(fp2)){
+					fgets(aux,1024,fp2);
+					strcat(mensaje,aux);
+					sprintf(buf2,"HTTP/1.1 %s<CR><LF>\nServer: Servidor del Francho y del Jisu<CR><LF>%s<CR><LF>\n%s",codigo,ka,mensaje);
+				}
 			}
 		}
-}
 
-if(!strcmp(codigo,"200: OK"))fprintf(fp,"Objeto solicitado: %s -> Todo correcto\n", ruta);
-else fprintf(fp,"Objeto solicitado: %s -> Error: %s\n", ruta, codigo);
+		if(!strcmp(codigo,"200: OK"))fprintf(fp,"Objeto solicitado: %s -> Todo correcto\n", ruta);
+		else fprintf(fp,"Objeto solicitado: %s -> Error: %s\n", ruta, codigo);
 
 
-/*
-Petición del cliente al servidor:
-GET /ejemplo.html HTTP/1.1<CR><LF>
-Host: url_servidor<CR><LF>
-Connection: keep-alive<CR><LF>
-<CR><LF>
+		/*
+		Petición del cliente al servidor:
+		GET /ejemplo.html HTTP/1.1<CR><LF>
+		Host: url_servidor<CR><LF>
+		Connection: keep-alive<CR><LF>
+		<CR><LF>
 
-Petición del cliente al servidor:
-DAME /index.htm HTTP/1.1<CR><LF>
-Host: url_servidor<CR><LF>
-<CR><LF>
-*/
-
+		Petición del cliente al servidor:
+		DAME /index.htm HTTP/1.1<CR><LF>
+		Host: url_servidor<CR><LF>
+		<CR><LF>
+		*/
 
 
 
-      memset (buf, '\0', sizeof (buf));
+
+		memset (buf, '\0', sizeof (buf));
 
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 
-			/* Send a response back to the client. */
+					/* Send a response back to the client. */
 		if (send(s, buf2, TAM_BUFFER, 0) != TAM_BUFFER) errout(hostname);
 
-      memset (buf2, '\0', sizeof (buf2));
-
+		memset (buf2, '\0', sizeof (buf2));
 	}
 
 		/* The loop has terminated, because there are no
@@ -509,7 +505,7 @@ Host: url_servidor<CR><LF>
 		 * the length of time this connection was used.
 		 */
 	fprintf(fp,"Conexion cerrada...\n\n");
-        fclose(fp);
+    fclose(fp);
 	close(s);
 
 		/* Log a finishing message. */
@@ -547,53 +543,53 @@ void errout(char *hostname)
 void serverUDP(int s, char * buffer, struct sockaddr_in clientaddr_in)
 {
 
-char hostname[MAXHOST];		/* remote host's name string */
+	char hostname[MAXHOST];		/* remote host's name string */
 
-long timevar;			/* contains time returned by time() */
-    
-FILE *fp3;
-fp3 = fopen("peticiones.log","a");
+	long timevar;			/* contains time returned by time() */
+	    
+	FILE *fp3;
+	fp3 = fopen("peticiones.log","a");
 
-if (inet_ntop(AF_INET, &(clientaddr_in.sin_addr), hostname, MAXHOST) == NULL){
-            	perror(" inet_ntop \n");
-             }
+	if (inet_ntop(AF_INET, &(clientaddr_in.sin_addr), hostname, MAXHOST) == NULL){
+		perror(" inet_ntop \n");
+	}
 
-getnameinfo((struct sockaddr *)&clientaddr_in,sizeof(clientaddr_in),
-                           hostname,MAXHOST,NULL,0,0);             //OBTENEMOS EL NOMBRE DEL SERVIDOR
-
-
-fprintf(fp3,">>Host: %s,\tDireccion IP: %s,\tPuerto: %u,\tProtocolo: UDP,\tA las: %s\n",
-		hostname, inet_ntoa(clientaddr_in.sin_addr), ntohs(clientaddr_in.sin_port), (char *) ctime(&timevar));
-
-printf("%s<<<<<<<<<<<<<<<<<<",buffer);
-
-printf("\n\nMENSAJE UDP RECIBIDO.........\n\n");
-
-//printf("%s<<<<<<<<<<<<<<<<<<",buffer);
-		char buffer2[BUFFERSIZE];
-
-//////////////////////////////////////////////////////////////////
+	getnameinfo((struct sockaddr *)&clientaddr_in,sizeof(clientaddr_in),
+	                           hostname,MAXHOST,NULL,0,0);             //OBTENEMOS EL NOMBRE DEL SERVIDOR
 
 
+	fprintf(fp3,">>Host: %s,\tDireccion IP: %s,\tPuerto: %u,\tProtocolo: UDP,\tA las: %s\n",
+			hostname, inet_ntoa(clientaddr_in.sin_addr), ntohs(clientaddr_in.sin_port), (char *) ctime(&timevar));
 
-char codigo2[40];
-int itUDP,itUDP2;
-char archivoUDP[100],mensajeUDP[1024], kaUDP[150];
-char rutaUDP[150];
-	mensajeUDP[0]='\0'; //RESETEAMOS
-	archivoUDP[0]='\0';
-	rutaUDP[0]='\0';
+	printf("%s<<<<<<<<<<<<<<<<<<",buffer);
 
+	printf("\n\nMENSAJE UDP RECIBIDO.........\n\n");
 
-      memset (mensajeUDP, '\0', sizeof (mensajeUDP));
-      memset (archivoUDP, '\0', sizeof (archivoUDP));
-      memset (rutaUDP, '\0', sizeof (rutaUDP));
+	//printf("%s<<<<<<<<<<<<<<<<<<",buffer);
+			char buffer2[BUFFERSIZE];
+
+	//////////////////////////////////////////////////////////////////
 
 
-sprintf(rutaUDP,"www/");
-printf("\n\nruta: %s\n\n",rutaUDP); 
 
-//KEEP-ALIVE
+	char codigo2[40];
+	int itUDP,itUDP2;
+	char archivoUDP[100],mensajeUDP[1024], kaUDP[150];
+	char rutaUDP[150];
+		mensajeUDP[0]=	'\0'; //RESETEAMOS
+		archivoUDP[0]=	'\0';
+		rutaUDP[0]=		'\0';
+
+
+	memset (mensajeUDP, '\0', sizeof (mensajeUDP));
+	memset (archivoUDP, '\0', sizeof (archivoUDP));
+	memset (rutaUDP, '\0', sizeof (rutaUDP));
+
+
+	sprintf(rutaUDP,"www/");
+	printf("\n\nruta: %s\n\n",rutaUDP); 
+
+	//KEEP-ALIVE
 
 	itUDP2 = 0;
 	for(itUDP=0;buffer[itUDP]!='\0';itUDP++)
@@ -609,30 +605,28 @@ printf("\n\nruta: %s\n\n",rutaUDP);
 
 
 
-for(itUDP=0;buffer[itUDP]!='/';itUDP++);
+	for(itUDP=0;buffer[itUDP]!='/';itUDP++);
 
-for(itUDP2=itUDP;buffer[itUDP2]!=' ';itUDP2++);
+	for(itUDP2=itUDP;buffer[itUDP2]!=' ';itUDP2++);
 
-int k=0;
-for(itUDP=itUDP+1;itUDP!=itUDP2;itUDP++){
-	archivoUDP[k] = buffer[itUDP];
-	k++;
-}
-printf("\nVALOOOOR rutaUDP: ->%s<-\n\n",archivoUDP);
-
-
-strcat(rutaUDP,archivoUDP);
+	int k=0;
+	for(itUDP=itUDP+1;itUDP!=itUDP2;itUDP++){
+		archivoUDP[k] = buffer[itUDP];
+		k++;
+	}
+	printf("\nVALOOOOR rutaUDP: ->%s<-\n\n",archivoUDP);
 
 
+	strcat(rutaUDP,archivoUDP);
 
-printf("\nVALOOOOR ruta: ->%s<-\n\n",rutaUDP);
 
-//501 Not Implemented
-if(notImplement501(buffer) == -1){
-  sprintf(codigo2,"501: Not implemented");
-	sprintf(buffer2,"HTTP/1.1 %s<CR><LF>\nServer: Servidor del Francho y del Jisu<CR><LF>%s<CR><LF>\n<html><body><h1>501 Not Implemented</h1></body></html>",codigo2,kaUDP);
-}else
-{
+	printf("\nVALOOOOR ruta: ->%s<-\n\n",rutaUDP);
+
+	//501 Not Implemented
+	if(notImplement501(buffer) == -1){
+	  	sprintf(codigo2,"501: Not implemented");
+		sprintf(buffer2,"HTTP/1.1 %s<CR><LF>\nServer: Servidor del Francho y del Jisu<CR><LF>%s<CR><LF>\n<html><body><h1>501 Not Implemented</h1></body></html>",codigo2,kaUDP);
+	}else{
 
 
 		FILE *fp4;
@@ -641,7 +635,7 @@ if(notImplement501(buffer) == -1){
 		//404 Not Found
 		if((fp4 = fopen(rutaUDP,"r")) == NULL) 
 		{
-  		sprintf(codigo2,"404: Not found");
+			sprintf(codigo2,"404: Not found");
 			sprintf(buffer2,"HTTP/1.1 %s<CR><LF>\nServer: Servidor del Francho y del Jisu<CR><LF>%s<CR><LF>\n<html><body><h1>404 Not Found</h1></body></html>",codigo2,kaUDP);
 		}else{ //200 OK
 		 	sprintf(codigo2,"200: OK");
@@ -652,10 +646,10 @@ if(notImplement501(buffer) == -1){
 				sprintf(buffer2,"HTTP/1.1 %s<CR><LF>\nServer: Servidor del Francho y del Jisu<CR><LF>%s<CR><LF>\n%s",codigo2,kaUDP,mensajeUDP);
 			}
 		}
-}
+	}
 
-if(!strcmp(codigo2,"200: OK"))fprintf(fp3,"Objeto solicitado: %s -> Todo correcto\n", rutaUDP);
-else fprintf(fp3,"Objeto solicitado: %s -> Error: %s\n", rutaUDP, codigo2);
+	if(!strcmp(codigo2,"200: OK"))fprintf(fp3,"Objeto solicitado: %s -> Todo correcto\n", rutaUDP);
+	else fprintf(fp3,"Objeto solicitado: %s -> Error: %s\n", rutaUDP, codigo2);
 
 
 
@@ -697,15 +691,15 @@ else fprintf(fp3,"Objeto solicitado: %s -> Error: %s\n", rutaUDP, codigo2);
 	//}
      //freeaddrinfo(res);
 
-printf("\n%s\n\n",buffer2);
-fprintf(fp3,"\nConexion cerrada\n\n\n");
-  fclose(fp3);
+	printf("\n%s\n\n",buffer2);
+	fprintf(fp3,"\nConexion cerrada\n\n\n");
+	fclose(fp3);
 	nc = sendto (s, buffer2, sizeof(buffer2), 0, (struct sockaddr *)&clientaddr_in, addrlen);
 	if ( nc == -1) {
 		 perror("serverUDP");
 		 printf("%s: sendto error\n", "serverUDP");
 		 return;
-  }   
+  	}   
 	memset(buffer2, '\0',sizeof(buffer2));
 
 }
@@ -724,9 +718,9 @@ fprintf(fp3,"\nConexion cerrada\n\n\n");
 
 int notImplement501(char * string){
 
-if(string[0] == 'G' && string[1] == 'E' && string[2] == 'T' && string[3]==' ') return 0;
+	if(string[0] == 'G' && string[1] == 'E' && string[2] == 'T' && string[3]==' ') return 0;
 
-return -1;
+	return -1;
 }
 
 
