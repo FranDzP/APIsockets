@@ -398,7 +398,7 @@ void serverTCP(int s, struct sockaddr_in clientaddr_in)
 		char codigo[40];
 		int it,it2;
 		int tammen;
-		char archivo[100], mensaje[1024], ka[150];
+		char archivo[100], mensaje[1024], ka[150], aux[1024];
 		/*mensaje[0]='\0'; //RESETEAMOS
 		archivo[0]='\0';
 		ruta[0]='\0';*/
@@ -411,6 +411,83 @@ void serverTCP(int s, struct sockaddr_in clientaddr_in)
 
 		switch(buf[1])
 		{
+			case '1':	//CLIENTE QUIERE LEER
+
+				//sprintf(buf2,"He recibido que quieren escribir.\n");
+				//02fichero.txt0octet0 tengo que quitar:|0octet0| = 6 +1 xq es de 0 a n-1 
+				tammen = strlen(buf);
+				it2 = 0;
+				for (it = 2; it < tammen-7; ++it)
+				{
+					buf2[it2] = buf[it];
+					it2++;
+				}
+				//tenemos el fichero en buf2
+				//Establecemos ruta:
+				sprintf(ruta,"ficherosTFTPserver/");
+				strcat(ruta,buf2);
+
+				if(!existe(ruta)){
+					//mensaje ERROR NO ENCONTRADO
+					sprintf(buf2,"0506Error: Fichero no encontrado.0\n"); //bloque 0
+					break;
+				}
+
+				//Existe fichero, comencemos a enviar
+				//sin break
+
+			
+
+				//Abrimos fichero		
+				if((f = fopen(ruta,"r")) == NULL) 
+				{
+		  			printf("404: Not found");
+		  			break;
+				}
+
+				
+				//200 OK
+			 	printf("200: OK");
+			 	int j = 0; //para contar las iteraciones
+			 	tammen = 508;
+
+
+			case '4':
+
+				if (tammen != 508)	//FIN FICHERO
+				{
+					fclose(f);
+					break;
+				}
+				
+				j++;
+				memset (mensaje, '\0', sizeof (mensaje)); 	//reset mensaje
+	   			memset (aux, '\0', sizeof (aux)); 	//reset aux
+
+			
+				//CANTIDADDEBYTESLEIDOS=FREAD(CONTENIDO,NºBYTESXELEMENTO,NUMERODEELEMENTOS,FICHERO)
+
+				tammen = fread(&mensaje,1,508,f);	
+
+				//CREAMOS EL MENSAJE
+
+				//Como todo va sobre ruedas, vamos a darle formato
+				sprintf(aux,"030%d",j);
+				printf("%s\n",aux);
+				sleep(3);
+				strcat(aux,mensaje);
+
+				sleep(1);
+
+				//MANDAMOS EL MENSAJE
+				memset (buf2, '\0', sizeof (buf)); 	//reset mensaje
+				strcpy(buf2,aux);
+
+				
+
+
+			break;
+
 			case '2':	//CLIENTE QUIERE ESCRIBIR
 
 				//sprintf(buf2,"He recibido que quieren escribir.\n");
@@ -428,18 +505,18 @@ void serverTCP(int s, struct sockaddr_in clientaddr_in)
 				strcat(ruta,buf2);
 
 				if(existe(ruta)){
-					//AQUíIMPLEMENTAR ERROR SOBREESCRITURA
+					//mensaje ERROR SOBREESCRITURA
 					sprintf(buf2,"0506Error: No puede sobreescribir.0\n");
 				}else{
 					//Mensaje confirmación
-					//sprintf(buf2,"04bloque0");
+					sprintf(buf2,"0400"); //bloque 0
 				}
 
 			break;
 
 			case '3':	//SERVIDOR RECIBIENDO DATOS DEL CLIENTE
 
-				sprintf(buf2,"Estamos escribiendo en %s.\n",ruta);
+				//sprintf(buf2,"Estamos escribiendo en %s.\n",ruta);
 				tammen = strlen(buf);
 
 				if((f = fopen(ruta,"a")) == NULL){
@@ -452,8 +529,16 @@ void serverTCP(int s, struct sockaddr_in clientaddr_in)
 				}
 				fclose(f);
 
+				//mensaje asentimiento
+				sprintf(buf2,"04%c%c",buf[2],buf[3]);
 
 			break;
+
+			default:
+				//mensaje error: no definido
+				sprintf(buf2,"0500Error: No definido.0\n");
+
+
 
 		}
 
