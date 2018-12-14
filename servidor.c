@@ -449,12 +449,12 @@ void serverTCP(int s, struct sockaddr_in clientaddr_in)
 				//200 OK
 			 	printf("200: OK");
 			 	int j = 0; //para contar las iteraciones
-			 	tammen = 508;
+			 	tammen = 512;
 
 
 			case '4':
 
-				if (tammen != 508)	//FIN FICHERO
+				if (tammen != 512)	//FIN FICHERO
 				{
 					fclose(f);
 					break;
@@ -467,12 +467,15 @@ void serverTCP(int s, struct sockaddr_in clientaddr_in)
 			
 				//CANTIDADDEBYTESLEIDOS=FREAD(CONTENIDO,NºBYTESXELEMENTO,NUMERODEELEMENTOS,FICHERO)
 
-				tammen = fread(&mensaje,1,508,f);	
+				tammen = fread(&mensaje,1,512,f);	
 
 				//CREAMOS EL MENSAJE
 
 				//Como todo va sobre ruedas, vamos a darle formato
-				sprintf(aux,"030%d",j);
+
+				if(j < 10) sprintf(aux,"030%d",j);
+				else sprintf(aux,"03%d",j);
+
 				printf("%s\n",aux);
 				sleep(3);
 				strcat(aux,mensaje);
@@ -627,97 +630,164 @@ void serverUDP(int s, char * buffer, struct sockaddr_in clientaddr_in)
 	printf("\n\nMENSAJE UDP RECIBIDO.........\n\n");
 
 	//printf("%s<<<<<<<<<<<<<<<<<<",buffer);
-			char buffer2[BUFFERSIZE];
+	char buffer2[BUFFERSIZE];
 
 	//////////////////////////////////////////////////////////////////
 
 
 
-	char codigo2[40];
-	int itUDP,itUDP2;
-	char archivoUDP[100],mensajeUDP[1024], kaUDP[150];
-	char rutaUDP[150];
-		mensajeUDP[0]=	'\0'; //RESETEAMOS
-		archivoUDP[0]=	'\0';
-		rutaUDP[0]=		'\0';
+	//VARIABLES A USAR
+	FILE *f;
+	char ruta[150];
+	char codigo[40];
+	int it,it2;
+	int tammen;
+	char archivo[100], mensaje[1024], ka[150], aux[1024];
+	/*mensaje[0]='\0'; //RESETEAMOS
+	archivo[0]='\0';
+	ruta[0]='\0';*/
+
+	memset (mensaje,'\0' , sizeof (mensaje));
+	memset (archivo, '\0', sizeof (archivo));
+	//memset (ruta, '\0', sizeof (ruta));
 
 
-	memset (mensajeUDP, '\0', sizeof (mensajeUDP));
-	memset (archivoUDP, '\0', sizeof (archivoUDP));
-	memset (rutaUDP, '\0', sizeof (rutaUDP));
 
-
-	sprintf(rutaUDP,"www/");
-	printf("\n\nruta: %s\n\n",rutaUDP); 
-
-	//KEEP-ALIVE
-
-	itUDP2 = 0;
-	for(itUDP=0;buffer[itUDP]!='\0';itUDP++)
+	switch(buffer[1])
 	{
-		if(buffer[itUDP] == '\n') itUDP2++;
-	}
+		case '1':	//CLIENTE QUIERE LEER
 
-	if(itUDP2==3){
-		sprintf(kaUDP,"\nConnection: keep-alive<CR><LF>\n");
-	}else if(itUDP2==2){
-		sprintf(kaUDP,"\nConnection: close<CR><LF>\n");
-	}
-
-
-
-	for(itUDP=0;buffer[itUDP]!='/';itUDP++);
-
-	for(itUDP2=itUDP;buffer[itUDP2]!=' ';itUDP2++);
-
-	int k=0;
-	for(itUDP=itUDP+1;itUDP!=itUDP2;itUDP++){
-		archivoUDP[k] = buffer[itUDP];
-		k++;
-	}
-	printf("\nVALOOOOR rutaUDP: ->%s<-\n\n",archivoUDP);
-
-
-	strcat(rutaUDP,archivoUDP);
-
-
-	printf("\nVALOOOOR ruta: ->%s<-\n\n",rutaUDP);
-
-	//501 Not Implemented
-	if(notImplement501(buffer) == -1){
-	  	sprintf(codigo2,"501: Not implemented");
-		sprintf(buffer2,"HTTP/1.1 %s<CR><LF>\nServer: Servidor del Francho y del Jisu<CR><LF>%s<CR><LF>\n<html><body><h1>501 Not Implemented</h1></body></html>",codigo2,kaUDP);
-	}else{
-
-
-		FILE *fp4;
-		char aux[1024];
-
-		//404 Not Found
-		if((fp4 = fopen(rutaUDP,"r")) == NULL) 
-		{
-			sprintf(codigo2,"404: Not found");
-			sprintf(buffer2,"HTTP/1.1 %s<CR><LF>\nServer: Servidor del Francho y del Jisu<CR><LF>%s<CR><LF>\n<html><body><h1>404 Not Found</h1></body></html>",codigo2,kaUDP);
-		}else{ //200 OK
-		 	sprintf(codigo2,"200: OK");
-			fp4 = fopen(rutaUDP,"r");
-			while(!feof(fp4)){
-				fgets(aux,1024,fp4);
-				strcat(mensajeUDP,aux);
-				sprintf(buffer2,"HTTP/1.1 %s<CR><LF>\nServer: Servidor del Francho y del Jisu<CR><LF>%s<CR><LF>\n%s",codigo2,kaUDP,mensajeUDP);
+			//sprintf(buffer2,"He recibido que quieren escribir.\n");
+			//02fichero.txt0octet0 tengo que quitar:|0octet0| = 6 +1 xq es de 0 a n-1 
+			tammen = strlen(buffer);
+			it2 = 0;
+			for (it = 2; it < tammen-7; ++it)
+			{
+				buffer2[it2] = buffer[it];
+				it2++;
 			}
-		}
+			//tenemos el fichero en buffer2
+			//Establecemos ruta:
+			sprintf(ruta,"ficherosTFTPserver/");
+			strcat(ruta,buffer2);
+
+			if(!existe(ruta)){
+				//mensaje ERROR NO ENCONTRADO
+				sprintf(buffer2,"0506Error: Fichero no encontrado.0\n"); //bloque 0
+				break;
+			}
+
+			//Existe fichero, comencemos a enviar
+			//sin break
+
+		
+
+			//Abrimos fichero		
+			if((f = fopen(ruta,"r")) == NULL) 
+			{
+	  			printf("404: Not found");
+	  			break;
+			}
+
+			
+			//200 OK
+		 	printf("200: OK");
+		 	int j = 0; //para contar las iteraciones
+		 	tammen = 512;
+
+
+		case '4':
+
+			if (tammen != 512)	//FIN FICHERO
+			{
+				fclose(f);
+				break;
+			}
+			
+			j++;
+			memset (mensaje, '\0', sizeof (mensaje)); 	//reset mensaje
+   			memset (aux, '\0', sizeof (aux)); 	//reset aux
+
+		
+			//CANTIDADDEBYTESLEIDOS=FREAD(CONTENIDO,NºBYTESXELEMENTO,NUMERODEELEMENTOS,FICHERO)
+
+			tammen = fread(&mensaje,1,512,f);	
+
+			//CREAMOS EL MENSAJE
+
+			//Como todo va sobre ruedas, vamos a darle formato
+
+			if(j < 10) sprintf(aux,"030%d",j);
+			else sprintf(aux,"03%d",j);
+			
+			printf("%s\n",aux);
+			sleep(3);
+			strcat(aux,mensaje);
+
+			sleep(1);
+
+			//MANDAMOS EL MENSAJE
+			memset (buffer2, '\0', sizeof (buffer)); 	//reset mensaje
+			strcpy(buffer2,aux);
+
+			
+
+
+		break;
+
+		case '2':	//CLIENTE QUIERE ESCRIBIR
+
+			//sprintf(buffer2,"He recibido que quieren escribir.\n");
+			//02fichero.txt0octet0 tengo que quitar:|0octet0| = 6 +1 xq es de 0 a n-1 
+			tammen = strlen(buffer);
+			it2 = 0;
+			for (it = 2; it < tammen-7; ++it)
+			{
+				buffer2[it2] = buffer[it];
+				it2++;
+			}
+			//tenemos el fichero en buffer2
+			//Establecemos ruta:
+			sprintf(ruta,"ficherosTFTPserver/");
+			strcat(ruta,buffer2);
+
+			if(existe(ruta)){
+				//mensaje ERROR SOBREESCRITURA
+				sprintf(buffer2,"0506Error: No puede sobreescribir.0\n");
+			}else{
+				//Mensaje confirmación
+				sprintf(buffer2,"0400"); //bloque 0
+			}
+
+		break;
+
+		case '3':	//SERVIDOR RECIBIENDO DATOS DEL CLIENTE
+
+			//sprintf(buffer2,"Estamos escribiendo en %s.\n",ruta);
+			tammen = strlen(buffer);
+
+			if((f = fopen(ruta,"a")) == NULL){
+				perror("Fallo al crear/escribir documento.");
+			}else{
+				for (it = 4; it < tammen; ++it)
+				{
+					fputc(buffer[it],f);
+				}
+			}
+			fclose(f);
+
+			//mensaje asentimiento
+			sprintf(buffer2,"04%c%c",buffer[2],buffer[3]);
+
+		break;
+
+		default:
+			//mensaje error: no definido
+			sprintf(buffer2,"0500Error: No definido.0\n");
+
+
+
 	}
-
-	if(!strcmp(codigo2,"200: OK"))fprintf(fp3,"Objeto solicitado: %s -> Todo correcto\n", rutaUDP);
-	else fprintf(fp3,"Objeto solicitado: %s -> Error: %s\n", rutaUDP, codigo2);
-
-
-
-
-
-
-
 
 
 
