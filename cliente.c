@@ -35,6 +35,13 @@ void handler()
 {
  	printf("Alarma recibida \n");
 }
+
+
+//PROPIAS
+int existe(char *f);
+
+
+
 /*
  *			M A I N
  */
@@ -172,8 +179,8 @@ char *argv[];
 				}else{ //200 OK
 				 	printf("200: OK");
 				 	int j = 0; //para contar las iteraciones
-	 				int nume = 508; //NUMERO BITS LEIDOS (inicializamos en 508 para entrar en el while)
-					while(nume == 508){
+	 				int nume = 512; //NUMERO BITS LEIDOS (inicializamos en 512 para entrar en el while)
+					while(nume == 512){
 						j++;
 						memset (mensaje, '\0', sizeof (mensaje)); 	//reset mensaje
 			   			memset (aux, '\0', sizeof (aux)); 	//reset aux
@@ -183,14 +190,16 @@ char *argv[];
 					
 						//CANTIDADDEBYTESLEIDOS=FREAD(CONTENIDO,NºBYTESXELEMENTO,NUMERODEELEMENTOS,FICHERO)
 
-						nume = fread(&mensaje,1,508,f);	
+						nume = fread(&mensaje,1,512,f);	
 						printf("\n\nLEEMOS DE ARCHIVO %d: \n\n",nume);
 						//printf("%s\n",mensaje);
 
 						//CREAMOS EL MENSAJE
 
 						//Como todo va sobre ruedas, vamos a darle formato
-						sprintf(aux,"030%d",j);
+						if(j < 10) sprintf(aux,"030%d",j);
+						else sprintf(aux,"03%d",j);
+
 						printf("%s\n",aux);
 						sleep(3);
 						strcat(aux,mensaje);
@@ -245,92 +254,103 @@ char *argv[];
    			//Memset (aux, '\0', sizeof (aux)); 	//reset aux
 			mensaje[0] = aux[0] = '\0';
 
-			//PRIMERO creamos la peticion de escritura
 
-			sprintf(mensaje,"01%s0octet0",argv[4]);
-			printf("%s\n", mensaje);
+			//Primero se mira si el cliente tiene el fichero para no sobreescribir
+			FILE *f;
+				
+			//Establecimiento de la ruta
+			char ruta[150];
+			memset (ruta, '\0', sizeof (ruta)); 	//reset ruta
+			//ruta[0]='\0';
+			sprintf(ruta,"ficherosTFTPclient/");
+			strcat(ruta,argv[4]);
+			printf("\n\nruta: %s\n\n",ruta);
 
-			if (send(s, mensaje, TAM_BUFFER, 0) != TAM_BUFFER){ 								
-				fprintf(stderr, "%s: Connection aborted on error ",	argv[0]); 
-				fprintf(stderr, "on send number %d\n", i);
-				exit(1);
-			} 
-	        
-	        sleep(1);
-
-			i = recv(s, buf2, TAM_BUFFER, 0);
-		    
-		    if (i == -1) {
-		    	perror(argv[0]);
-				fprintf(stderr, "%s: error reading result\n", argv[0]);
-				exit(1);
-			}
-
-			printf("\n>>Respuesta del servidor: \n%s\n", buf2);
-
-			if(buf2[1] != '3'){
-				printf("No tiene el archivo.\n");
+			if(existe(ruta)){
+					//mensaje ERROR NO ENCONTRADO
+					printf("Cuidado, ya tiene un archivo con este nombre.\n"); //bloque 0
+					//break;
 			}else{
 
-				//COMENZAMOS A RECIBIR EL ARCHIVO POR BLOQUES
+				//Creamos la peticion de escritura
 
-				//Variables:
-				int j;
-				int tammen = 512;
-				FILE *f;
-				
-				//Establecimiento de la ruta
-				char ruta[150];
-				memset (ruta, '\0', sizeof (ruta)); 	//reset ruta
-				//ruta[0]='\0';
-				sprintf(ruta,"ficherosTFTPclient/");
-				strcat(ruta,argv[4]);
-				printf("\n\nruta: %s\n\n",ruta);
+				sprintf(mensaje,"01%s0octet0",argv[4]);
+				printf("%s\n", mensaje);
 
-				while(tammen == 512){
+				if (send(s, mensaje, TAM_BUFFER, 0) != TAM_BUFFER){ 								
+					fprintf(stderr, "%s: Connection aborted on error ",	argv[0]); 
+					fprintf(stderr, "on send number %d\n", i);
+					exit(1);
+				} 
+		        
+		        sleep(1);
 
-					tammen = strlen(buf2);
+				i = recv(s, buf2, TAM_BUFFER, 0);
+			    
+			    if (i == -1) {
+			    	perror(argv[0]);
+					fprintf(stderr, "%s: error reading result\n", argv[0]);
+					exit(1);
+				}
 
-					if((f = fopen(ruta,"a")) == NULL){
-						perror("Fallo al crear/escribir documento.");
-					}else{
-						for (j = 4; j < tammen; ++j)
-						{
-							fputc(buf2[j],f);
+				printf("\n>>Respuesta del servidor: \n%s\n", buf2);
+
+				if(buf2[1] != '3'){
+					printf("No tiene el archivo.\n");
+				}else{
+
+					//COMENZAMOS A RECIBIR EL ARCHIVO POR BLOQUES
+
+					//Variables:
+					int j;
+					int tammen = 516;
+					
+
+					while(tammen == 516){
+
+						tammen = strlen(buf2);
+
+						if((f = fopen(ruta,"a")) == NULL){
+							perror("Fallo al crear/escribir documento.");
+						}else{
+							for (j = 4; j < tammen; ++j)
+							{
+								fputc(buf2[j],f);
+							}
 						}
-					}
-					fclose(f);
+						fclose(f);
 
-					//mensaje asentimiento
-					sprintf(buf,"04%c%c",buf2[2],buf2[3]);
+						//mensaje asentimiento
+						sprintf(buf,"04%c%c",buf2[2],buf2[3]);
 
-					if (send(s, buf, TAM_BUFFER, 0) != TAM_BUFFER){ 								
-						fprintf(stderr, "%s: Connection aborted on error ",	argv[0]); 
-						fprintf(stderr, "on send number %d\n", i);
-						exit(1);
-					} 
-			        
-			        sleep(1);
-
-			        if(tammen == 512){ //ESPERA A RECIBIR SIEMPRE QUE NO SEA EL ÚLTIMO MENSAJE
-
-						i = recv(s, buf2, TAM_BUFFER, 0);
-					    
-					    if (i == -1) {
-					    	perror(argv[0]);
-							fprintf(stderr, "%s: error reading result\n", argv[0]);
+						if (send(s, buf, TAM_BUFFER, 0) != TAM_BUFFER){ 								
+							fprintf(stderr, "%s: Connection aborted on error ",	argv[0]); 
+							fprintf(stderr, "on send number %d\n", i);
 							exit(1);
+						} 
+				        
+				        sleep(1);
+
+				        if(tammen == 516){ //ESPERA A RECIBIR SIEMPRE QUE NO SEA EL ÚLTIMO MENSAJE
+
+							i = recv(s, buf2, TAM_BUFFER, 0);
+						    
+						    if (i == -1) {
+						    	perror(argv[0]);
+								fprintf(stderr, "%s: error reading result\n", argv[0]);
+								exit(1);
+							}
+
+							printf("\n>>Respuesta del servidor: \n%s\n", buf2);
+
 						}
 
-						printf("\n>>Respuesta del servidor: \n%s\n", buf2);
-
 					}
+
 
 				}
 
-
 			}
-
 
 		}
 
@@ -367,8 +387,11 @@ char *argv[];
 	   	char hostname[MAXHOST];
 	   	struct addrinfo hints, *res;
 
-		if (argc != 4) {
-			fprintf(stderr, "uso:  %s <host> <protocolo> <fichero ordenes>\n", argv[0]);
+	   	char buf2[TAM_BUFFER],buf[TAM_BUFFER];
+	   	//char mensaje[1024];
+
+		if (argc != 5) {
+			fprintf(stderr, "uso:  %s <host> <protocolo> <accion> <fichero ordenes>\n", argv[0]);
 			exit(1);
 		}
 		
@@ -458,40 +481,26 @@ char *argv[];
 	    n_retry=RETRIES;
 
 	    
-		//----------------------LEEMOS LAS ORDENES DEL FICHERO
+		///----------------------BLOQUE DE CODIGO API C - UDP
 
-	    char buf[1024];
-		FILE *fp,*fp2;
-	    char mensaje[1024],mensaje2[1024],archivo[100];
-	    char aux;
+		///----------------------BLOQUE DE CODIGO escribir (enviar archivo) - UDP
 
-	    fp = fopen(argv[4],"r");
+	    if(!strcmp(argv[3],"e")){
+			printf("Estoy dentro de escritura de fichero\n");
 
-		archivo[0]='\0';
-	    sprintf(archivo, "%u",ntohs(myaddr_in.sin_port));
-		strcat(archivo,".txt");
+			//variables a usar
+			char mensaje[1024],aux[1024];
+   			//memset (mensaje, '\0', sizeof (mensaje)); 	//reset mensaje
+   			//Memset (aux, '\0', sizeof (aux)); 	//reset aux
+			mensaje[0] = aux[0] = '\0';
 
-	    fp2 = fopen(archivo,"a"); 
+			//PRIMERO creamos la peticion de escritura
 
-
-		while(!feof(fp)){
-
-			buf[0]='\0'; //RESETEAMOS
-		    fgets(buf,1024,fp);
-		    
-		    for(i=0; buf[i]!='\n';i++);
-		    aux=buf[i-2];
-		    if(aux!='l') buf[i-3]='\0'; //SI NO ACABA EN "l" CORTA LA ULTIMA LETRA (YA QUE TODOS LOS OBJETOS QUE PIDE EL USUARIO ACABAN EN .HTML)
-		    else buf[i]='\0'; //PARA ELIMINAR EL SALTO DE LINEA DE LA CADENA
-
-			printf("\nAQUI ESTOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOY en UDP\n\n"); 
-
-		    if(aux=='k') sprintf(mensaje,"%s HTTP/1.1 <CR><LF>\nHost: olivo <CR><LF>\nConnection: Keep-alive <CR><LF>\n<CR><LF>",buf);
-		    else sprintf(mensaje,"%s HTTP/1.1 <CR><LF>\nHost: olivo <CR><LF>\n<CR><LF>",buf);
-		    printf("\nENVIAMOS:\n%s\n",mensaje); 
+			sprintf(mensaje,"02%s0octet0",argv[4]);
+			printf("%s\n", mensaje);
 
 
-			//-------------------------ENVIAMOS EL MENSAJE
+
 
 			while (n_retry > 0) {
 		        if (sendto (s, mensaje, strlen(mensaje), 0, (struct sockaddr *)&servaddr_in, sizeof(struct sockaddr_in)) == -1) {
@@ -501,7 +510,7 @@ char *argv[];
 		        	}
 				sleep(1);
 			    alarm(TIMEOUT); //SE AJUSTA EL TIMEOUT
-		        if (recvfrom (s, mensaje2, sizeof(mensaje2), 0,
+		        if (recvfrom (s, buf2, sizeof(buf2), 0,
 								(struct sockaddr *)&servaddr_in, &addrlen) == -1) {
 		    		/*if (errno == EINTR) {
 		 		         printf("attempt %d (retries %d).\n", n_retry, RETRIES);
@@ -513,8 +522,8 @@ char *argv[];
 		                }*/
 		              } 
 		        else {
-					printf("\n\n>>>RESPUESTA DEL SERVIDOR:\n%s\n\n",mensaje2);
-		  			fprintf(fp2,"\n%s\n\n",mensaje2);
+					printf("\n\n>>>RESPUESTA DEL SERVIDOR:\n%s\n\n",buf2);
+
 		            alarm(0);
 		            break;	
 	            }
@@ -524,12 +533,127 @@ char *argv[];
 		       printf("Unable to get response from");
 		       printf(" %s after %d attempts.\n", argv[1], RETRIES);
 		    }
-		}
-		fclose(fp);
-		fclose(fp2);
-	}
+
+
+
+
+			if(buf2[1] != '4'){	//Servidor nos avisa si ya tiene el archivo o se le puede enviar.
+
+				printf("El fichero ya existe.\n"); 
+			
+			}else{
+
+				//COMENZAMOS A MANDAR EL ARCHIVO POR BLOQUES
+
+				FILE *f;
+				
+				//Establecimiento de la ruta
+				char ruta[150];
+				memset (ruta, '\0', sizeof (ruta)); 	//reset ruta
+				//ruta[0]='\0';
+				sprintf(ruta,"ficherosTFTPclient/");
+				strcat(ruta,argv[4]);
+				printf("\n\nruta: %s\n\n",ruta);
+
+
+				//Abrimos fichero		
+				if((f = fopen(ruta,"r")) == NULL) 
+				{
+		  			printf("404: Not found");
+				}else{ //200 OK
+				 	printf("200: OK");
+				 	int j = 0; //para contar las iteraciones
+	 				int nume = 512; //NUMERO BITS LEIDOS (inicializamos en 512 para entrar en el while)
+					while(nume == 512){
+						j++;
+						memset (mensaje, '\0', sizeof (mensaje)); 	//reset mensaje
+			   			memset (aux, '\0', sizeof (aux)); 	//reset aux
+
+			   			//mensaje[0]='\0';
+			   			//aux[0]='\0';
+					
+						//CANTIDADDEBYTESLEIDOS=FREAD(CONTENIDO,NºBYTESXELEMENTO,NUMERODEELEMENTOS,FICHERO)
+
+						nume = fread(&mensaje,1,512,f);	
+						printf("\n\nLEEMOS DE ARCHIVO %d: \n\n",nume);
+						//printf("%s\n",mensaje);
+
+						//CREAMOS EL MENSAJE
+
+						//Como todo va sobre ruedas, vamos a darle formato
+						if(j < 10) sprintf(aux,"030%d",j);
+						else sprintf(aux,"03%d",j);
+
+						printf("%s\n",aux);
+						sleep(3);
+						strcat(aux,mensaje);
+						printf("\nNUMERODEBYTESMENSAJE:%ld\n",strlen(aux));
+						sleep(1);
+
+						//MANDAMOS EL MENSAJE
+						memset (buf, '\0', sizeof (buf)); 	//reset mensaje
+						strcpy(buf,aux);
+
+						//-------------------------ENVIAMOS EL MENSAJE
+
+						while (n_retry > 0) {
+					        if (sendto (s, buf, strlen(buf), 0, (struct sockaddr *)&servaddr_in, sizeof(struct sockaddr_in)) == -1) {
+					        		perror(argv[0]);
+					        		fprintf(stderr, "%s: unable to send request\n", argv[0]);
+					        		exit(1);
+					        	}
+							sleep(1);
+						    alarm(TIMEOUT); //SE AJUSTA EL TIMEOUT
+					        if (recvfrom (s, buf2, sizeof(buf2), 0,
+											(struct sockaddr *)&servaddr_in, &addrlen) == -1) {
+					    		/*if (errno == EINTR) {
+					 		         printf("attempt %d (retries %d).\n", n_retry, RETRIES);
+					  	 		     n_retry--; 
+					                    } 
+					            else  {
+									printf("Unable to get response from");
+									exit(1); 
+					                }*/
+					              } 
+					        else {
+								printf("\n\n>>>RESPUESTA DEL SERVIDOR:\n%s\n\n",buf2);
+
+					            alarm(0);
+					            break;	
+				            }
+					  	}
+
+					    if (n_retry == 0) {
+					       printf("Unable to get response from");
+					       printf(" %s after %d attempts.\n", argv[1], RETRIES);
+					    }
+
+					}//FIN WHILE CONTENIDO
+
+					fclose(f);
+
+				}//FIN FICHERO
+
+			}//FIN Bloque de confirmado (Servidor)
+
+			sleep(5);//sleep de comprobacion
+
+		}//FIN ESCRITURA FICHERO
+
+
+
+		
+	}//FIN UDP
 }
 
 
 
 
+int existe(char *r)
+{
+	FILE *f;
+  if((f = fopen(r, "r")) == NULL) return 0;
+  /* Si existe, cerramos */
+  fclose(f);
+  return 1;
+}
