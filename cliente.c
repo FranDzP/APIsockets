@@ -642,6 +642,151 @@ char *argv[];
 
 
 
+		///----------------------BLOQUE DE CODIGO leer (recibir archivo) - UDP
+		
+		if(!strcmp(argv[3],"l")){
+			printf("Estoy dentro de lectura de fichero\n");
+
+			//variables a usar
+			char mensaje[1024],aux[1024];
+   			//memset (mensaje, '\0', sizeof (mensaje)); 	//reset mensaje
+   			//Memset (aux, '\0', sizeof (aux)); 	//reset aux
+			mensaje[0] = aux[0] = '\0';
+
+
+			//Primero se mira si el cliente tiene el fichero para no sobreescribir
+			FILE *f;
+				
+			//Establecimiento de la ruta
+			char ruta[150];
+			memset (ruta, '\0', sizeof (ruta)); 	//reset ruta
+			//ruta[0]='\0';
+			sprintf(ruta,"ficherosTFTPclient/");
+			strcat(ruta,argv[4]);
+			printf("\n\nruta: %s\n\n",ruta);
+
+			if(existe(ruta)){
+					//mensaje ERROR NO ENCONTRADO
+					printf("Cuidado, ya tiene un archivo con este nombre.\n"); //bloque 0
+					//break;
+			}else{
+
+				//Creamos la peticion de escritura
+
+				sprintf(mensaje,"01%s0octet0",argv[4]);
+				printf("%s\n", mensaje);
+
+				while (n_retry > 0) {
+			        if (sendto (s, mensaje, strlen(mensaje), 0, (struct sockaddr *)&servaddr_in, sizeof(struct sockaddr_in)) == -1) {
+			        		perror(argv[0]);
+			        		fprintf(stderr, "%s: unable to send request\n", argv[0]);
+			        		exit(1);
+			        	}
+					sleep(1);
+				    alarm(TIMEOUT); //SE AJUSTA EL TIMEOUT
+			        if (recvfrom (s, buf2, sizeof(buf2), 0,
+									(struct sockaddr *)&servaddr_in, &addrlen) == -1) {
+			    		/*if (errno == EINTR) {
+			 		         printf("attempt %d (retries %d).\n", n_retry, RETRIES);
+			  	 		     n_retry--; 
+			                    } 
+			            else  {
+							printf("Unable to get response from");
+							exit(1); 
+			                }*/
+			              } 
+			        else {
+						printf("\n\n>>>RESPUESTA DEL SERVIDOR:\n%s\n\n",buf2);
+
+			            alarm(0);
+			            break;	
+		            }
+			  	}
+
+			    if (n_retry == 0) {
+			       printf("Unable to get response from");
+			       printf(" %s after %d attempts.\n", argv[1], RETRIES);
+			    }
+
+
+
+
+				if(buf2[1] != '3'){
+					printf("No tiene el archivo.\n");
+				}else{
+
+					//COMENZAMOS A RECIBIR EL ARCHIVO POR BLOQUES
+
+					//Variables:
+					int j;
+					int tammen = 516;
+					
+
+					while(tammen == 516){
+
+						tammen = strlen(buf2);
+
+						if((f = fopen(ruta,"a")) == NULL){
+							perror("Fallo al crear/escribir documento.");
+						}else{
+							for (j = 4; j < tammen; ++j)
+							{
+								fputc(buf2[j],f);
+							}
+						}
+						fclose(f);
+
+						//mensaje asentimiento
+						sprintf(buf,"04%c%c",buf2[2],buf2[3]);
+
+						//-------------------------ENVIAMOS EL MENSAJE
+
+						while (n_retry > 0) {
+					        if (sendto (s, buf, strlen(buf), 0, (struct sockaddr *)&servaddr_in, sizeof(struct sockaddr_in)) == -1) {
+					        		perror(argv[0]);
+					        		fprintf(stderr, "%s: unable to send request\n", argv[0]);
+					        		exit(1);
+					        	}
+							sleep(1);
+
+							if(tammen != 516) break;
+
+						    alarm(TIMEOUT); //SE AJUSTA EL TIMEOUT
+					        if (recvfrom (s, buf2, sizeof(buf2), 0,
+											(struct sockaddr *)&servaddr_in, &addrlen) == -1) {
+					    		/*if (errno == EINTR) {
+					 		         printf("attempt %d (retries %d).\n", n_retry, RETRIES);
+					  	 		     n_retry--; 
+					                    } 
+					            else  {
+									printf("Unable to get response from");
+									exit(1); 
+					                }*/
+					              } 
+					        else {
+								printf("\n\n>>>RESPUESTA DEL SERVIDOR:\n%s\n\n",buf2);
+
+					            alarm(0);
+					            break;	
+				            }
+					  	}
+
+					    if (n_retry == 0) {
+					       printf("Unable to get response from");
+					       printf(" %s after %d attempts.\n", argv[1], RETRIES);
+					    }					
+
+
+					} //FIN WHILE
+
+
+				}
+
+			}
+
+		}
+
+
 		
 	}//FIN UDP
 }
