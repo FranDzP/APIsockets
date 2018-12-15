@@ -398,13 +398,12 @@ void serverTCP(int s, struct sockaddr_in clientaddr_in)
 		char codigo[40];
 		int it,it2;
 		int tammen;
-		char archivo[100], mensaje[1024], ka[150], aux[1024];
+		char archivo[1024], mensaje[1024], ka[150], aux[1024];
 		/*mensaje[0]='\0'; //RESETEAMOS
 		archivo[0]='\0';
 		ruta[0]='\0';*/
 
 		memset (mensaje,'\0' , sizeof (mensaje));
-		memset (archivo, '\0', sizeof (archivo));
 		//memset (ruta, '\0', sizeof (ruta));
 
 
@@ -422,7 +421,9 @@ void serverTCP(int s, struct sockaddr_in clientaddr_in)
 					buf2[it2] = buf[it];
 					it2++;
 				}
-				//tenemos el fichero en buf2
+				//tenemos el fichero en buf2 y lo metemos en archivo
+				memset (archivo, '\0', sizeof (archivo));
+				strcpy(archivo,buf2);
 				//Establecemos ruta:
 				sprintf(ruta,"ficherosTFTPserver/");
 				strcat(ruta,buf2);
@@ -430,6 +431,7 @@ void serverTCP(int s, struct sockaddr_in clientaddr_in)
 				if(!existe(ruta)){
 					//mensaje ERROR NO ENCONTRADO
 					sprintf(buf2,"0506Error: Fichero no encontrado.0\n"); //bloque 0
+					fprintf(fp,"Objeto solicitado por cliente: %s -> No encontrado.\n", archivo);
 					break;
 				}
 
@@ -457,6 +459,8 @@ void serverTCP(int s, struct sockaddr_in clientaddr_in)
 				if (tammen != 512)	//FIN FICHERO
 				{
 					fclose(f);
+					fprintf(fp,"Objeto solicitado por cliente: %s -> Enviado correctamente.\n", archivo);
+
 					break;
 				}
 				
@@ -502,7 +506,9 @@ void serverTCP(int s, struct sockaddr_in clientaddr_in)
 					buf2[it2] = buf[it];
 					it2++;
 				}
-				//tenemos el fichero en buf2
+				//tenemos el fichero en buf2 y lo metemos en archivo
+				memset (archivo, '\0', sizeof (archivo));
+				strcpy(archivo,buf2);
 				//Establecemos ruta:
 				sprintf(ruta,"ficherosTFTPserver/");
 				strcat(ruta,buf2);
@@ -510,9 +516,11 @@ void serverTCP(int s, struct sockaddr_in clientaddr_in)
 				if(existe(ruta)){
 					//mensaje ERROR SOBREESCRITURA
 					sprintf(buf2,"0506Error: No puede sobreescribir.0\n");
+					fprintf(fp,"Objeto recibido de cliente: %s -> Error: No se puede sobreescribir.\n", archivo);
 				}else{
 					//Mensaje confirmación
 					sprintf(buf2,"0400"); //bloque 0
+					fprintf(fp,"Objeto recibido de cliente: %s -> Confirmado recibir.\n", archivo);
 				}
 
 			break;
@@ -524,22 +532,26 @@ void serverTCP(int s, struct sockaddr_in clientaddr_in)
 
 				if((f = fopen(ruta,"a")) == NULL){
 					perror("Fallo al crear/escribir documento.");
+					fprintf(fp,"Objeto solicitado por cliente: %s -> No encontrado.\n", archivo);
+
 				}else{
 					for (it = 4; it < tammen; ++it)
 					{
 						fputc(buf[it],f);
 					}
-				}
+				
 				fclose(f);
 
 				//mensaje asentimiento
 				sprintf(buf2,"04%c%c",buf[2],buf[3]);
+				}
 
 			break;
 
 			default:
 				//mensaje error: no definido
 				sprintf(buf2,"0500Error: No definido.0\n");
+				fprintf(fp,"Error: Petición de cliente no definida: %s\n", buf);
 
 
 
