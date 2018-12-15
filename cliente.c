@@ -1,8 +1,6 @@
 /*
-
 ** Fichero: cliente.c
-** Autores: 
-** Jesús García Fernández 80103448Z
+** Autor: 
 ** Francisco Díaz Plaza 70820100H
 */
 #include <sys/types.h>
@@ -50,6 +48,7 @@ int main(argc, argv)
 int argc;
 char *argv[];
 {
+
 
 	//----------------------------------------------------------------
 	//----------------------TCP---------------------------------------
@@ -119,6 +118,18 @@ char *argv[];
 
 		///----------------------BLOQUE DE CODIGO API C - TCP
 
+		//FICHERO DE DEPURACIÓN
+
+		FILE *fd; 
+		char archivo[100];
+		archivo[0] = '\0';
+		
+		sprintf(archivo,"%u",ntohs(myaddr_in.sin_port));
+		strcat(archivo,".txt");
+
+		if((fd = fopen(archivo,"a")) == NULL) printf("Error al abrir fichero de depuración.");
+
+
 		///----------------------BLOQUE DE CODIGO escribir (enviar archivo) - TCP
 
 		if(!strcmp(argv[3],"e")){
@@ -130,12 +141,15 @@ char *argv[];
    			//Memset (aux, '\0', sizeof (aux)); 	//reset aux
 			mensaje[0] = aux[0] = '\0';
 
+			fprintf(fd,"\nConexión con el servidor. Envío de datos: %s\n",argv[4]);
+
 			//PRIMERO creamos la peticion de escritura
 
 			sprintf(mensaje,"02%s0octet0",argv[4]);
 			printf("%s\n", mensaje);
 
-			if (send(s, mensaje, TAM_BUFFER, 0) != TAM_BUFFER){ 								
+			if (send(s, mensaje, TAM_BUFFER, 0) != TAM_BUFFER){ 		
+				fprintf(fd,"\nError: Fallo al enviar mensaje.\n");						
 				fprintf(stderr, "%s: Connection aborted on error ",	argv[0]); 
 				fprintf(stderr, "on send number %d\n", i);
 				exit(1);
@@ -156,8 +170,11 @@ char *argv[];
 			if(buf2[1] != '4'){	//Servidor nos avisa si ya tiene el archivo o se le puede enviar.
 
 				printf("El fichero ya existe.\n"); 
+				fprintf(fd,"\nEl servidor ya tiene \"%s\", no es posible sobreescribir.\n",argv[4]);
 			
 			}else{
+
+				fprintf(fd,"\nServidor acepta: %s, comienza el envío:\n",argv[4]);
 
 				//COMENZAMOS A MANDAR EL ARCHIVO POR BLOQUES
 
@@ -176,6 +193,7 @@ char *argv[];
 				if((f = fopen(ruta,"r")) == NULL) 
 				{
 		  			printf("404: Not found");
+		  			fprintf(fd,"\nNo se encuentra %s, en el directorio del cliente.\n",argv[4]);
 				}else{ //200 OK
 				 	printf("200: OK");
 				 	int j = 0; //para contar las iteraciones
@@ -206,11 +224,14 @@ char *argv[];
 						printf("\nNUMERODEBYTESMENSAJE:%ld\n",strlen(aux));
 						sleep(1);
 
+						fprintf(fd,"\nEnvío del bloque nº%d\n",j);
+
 						//MANDAMOS EL MENSAJE
 						memset (buf, '\0', sizeof (buf)); 	//reset mensaje
 						strcpy(buf,aux);
 
-						if (send(s, buf, TAM_BUFFER, 0) != TAM_BUFFER){ 								
+						if (send(s, buf, TAM_BUFFER, 0) != TAM_BUFFER){ 	
+							fprintf(fd,"\nError: Fallo al enviar mensaje.\n");							
 							fprintf(stderr, "%s: Connection aborted on error ",	argv[0]); 
 							fprintf(stderr, "on send number %d\n", i);
 							exit(1);
@@ -231,6 +252,7 @@ char *argv[];
 					}//FIN WHILE CONTENIDO
 
 					fclose(f);
+					fprintf(fd,"\nEnvío de del archivo %s finalizado.\n",argv[4]);
 
 				}//FIN FICHERO
 
@@ -254,6 +276,7 @@ char *argv[];
    			//Memset (aux, '\0', sizeof (aux)); 	//reset aux
 			mensaje[0] = aux[0] = '\0';
 
+			fprintf(fd,"\nConexión con el servidor. Demanda de datos: %s\n",argv[4]);
 
 			//Primero se mira si el cliente tiene el fichero para no sobreescribir
 			FILE *f;
@@ -269,15 +292,17 @@ char *argv[];
 			if(existe(ruta)){
 					//mensaje ERROR NO ENCONTRADO
 					printf("Cuidado, ya tiene un archivo con este nombre.\n"); //bloque 0
+					fprintf(fd,"\nError: Ya tiene \"%s\", no es posible sobreescribir.\n",argv[4]);
 					//break;
 			}else{
 
-				//Creamos la peticion de escritura
+				//Creamos la peticion de lectura
 
 				sprintf(mensaje,"01%s0octet0",argv[4]);
 				printf("%s\n", mensaje);
 
-				if (send(s, mensaje, TAM_BUFFER, 0) != TAM_BUFFER){ 								
+				if (send(s, mensaje, TAM_BUFFER, 0) != TAM_BUFFER){ 	
+					fprintf(fd,"\nError: Fallo al enviar mensaje.\n");							
 					fprintf(stderr, "%s: Connection aborted on error ",	argv[0]); 
 					fprintf(stderr, "on send number %d\n", i);
 					exit(1);
@@ -297,18 +322,27 @@ char *argv[];
 
 				if(buf2[1] != '3'){
 					printf("No tiene el archivo.\n");
+					fprintf(fd,"\nError: Servidor no tiene \"%s\".\n",argv[4]);
 				}else{
+
+					fprintf(fd,"\nServidor acepta. Cliente comienza a recibir \"%s\".\n",argv[4]);
+
 
 					//COMENZAMOS A RECIBIR EL ARCHIVO POR BLOQUES
 
 					//Variables:
-					int j;
+					int j,k;
 					int tammen = 516;
-					
+					k = 1;
 
 					while(tammen == 516){
 
+						k++;
+						fprintf(fd,"\nHa llegado el bloque nº%d.\n",k);
+
 						tammen = strlen(buf2);
+
+						if(tammen != 516) fprintf(fd,"\nDescarga del archivo %s ha finalizado.\n",argv[4]);
 
 						if((f = fopen(ruta,"a")) == NULL){
 							perror("Fallo al crear/escribir documento.");
@@ -323,7 +357,8 @@ char *argv[];
 						//mensaje asentimiento
 						sprintf(buf,"04%c%c",buf2[2],buf2[3]);
 
-						if (send(s, buf, TAM_BUFFER, 0) != TAM_BUFFER){ 								
+						if (send(s, buf, TAM_BUFFER, 0) != TAM_BUFFER){ 	
+							fprintf(fd,"\nError: Fallo al enviar mensaje.\n");							
 							fprintf(stderr, "%s: Connection aborted on error ",	argv[0]); 
 							fprintf(stderr, "on send number %d\n", i);
 							exit(1);
@@ -358,6 +393,9 @@ char *argv[];
 
 		
 		if (shutdown(s, 1) == -1) { //CIERRA LA CONEXION
+
+			fprintf(fd,"\nSe cierra la conexión con el servidor.\n");
+
 			perror(argv[0]);
 			fprintf(stderr, "%s: unable to shutdown socket\n", argv[0]);
 			exit(1);
@@ -483,10 +521,25 @@ char *argv[];
 	    
 		///----------------------BLOQUE DE CODIGO API C - UDP
 
+
+		//FICHERO DE DEPURACIÓN
+
+		FILE *fd; 
+		char archivo[100];
+		archivo[0] = '\0';
+		
+		sprintf(archivo,"%u",ntohs(myaddr_in.sin_port));
+		strcat(archivo,".txt");
+
+		if((fd = fopen(archivo,"a")) == NULL) printf("Error al abrir fichero de depuración.");
+
+
 		///----------------------BLOQUE DE CODIGO escribir (enviar archivo) - UDP
 
 	    if(!strcmp(argv[3],"e")){
 			printf("Estoy dentro de escritura de fichero\n");
+
+			fprintf(fd,"\nEnvío de datos (Escritura por UDP): %s\n",argv[4]);
 
 			//variables a usar
 			char mensaje[1024],aux[1024];
@@ -504,6 +557,7 @@ char *argv[];
 
 			while (n_retry > 0) {
 		        if (sendto (s, mensaje, strlen(mensaje), 0, (struct sockaddr *)&servaddr_in, sizeof(struct sockaddr_in)) == -1) {
+		        		fprintf(fd,"\nError: Fallo al enviar mensaje.\n");
 		        		perror(argv[0]);
 		        		fprintf(stderr, "%s: unable to send request\n", argv[0]);
 		        		exit(1);
@@ -540,8 +594,13 @@ char *argv[];
 			if(buf2[1] != '4'){	//Servidor nos avisa si ya tiene el archivo o se le puede enviar.
 
 				printf("El fichero ya existe.\n"); 
+				fprintf(fd,"\nEl servidor ya tiene \"%s\", no es posible sobreescribir.\n",argv[4]);
 			
 			}else{
+
+
+				fprintf(fd,"\nServidor acepta: %s, comienza el envío:\n",argv[4]);
+
 
 				//COMENZAMOS A MANDAR EL ARCHIVO POR BLOQUES
 
@@ -560,6 +619,7 @@ char *argv[];
 				if((f = fopen(ruta,"r")) == NULL) 
 				{
 		  			printf("404: Not found");
+		  			fprintf(fd,"\nNo se encuentra %s, en el directorio del cliente.\n",argv[4]);
 				}else{ //200 OK
 				 	printf("200: OK");
 				 	int j = 0; //para contar las iteraciones
@@ -590,6 +650,8 @@ char *argv[];
 						printf("\nNUMERODEBYTESMENSAJE:%ld\n",strlen(aux));
 						sleep(1);
 
+						fprintf(fd,"\nEnvío del bloque nº%d\n",j);
+
 						//MANDAMOS EL MENSAJE
 						memset (buf, '\0', sizeof (buf)); 	//reset mensaje
 						strcpy(buf,aux);
@@ -598,6 +660,7 @@ char *argv[];
 
 						while (n_retry > 0) {
 					        if (sendto (s, buf, strlen(buf), 0, (struct sockaddr *)&servaddr_in, sizeof(struct sockaddr_in)) == -1) {
+					        		fprintf(fd,"\nError: Fallo al enviar mensaje.\n");
 					        		perror(argv[0]);
 					        		fprintf(stderr, "%s: unable to send request\n", argv[0]);
 					        		exit(1);
@@ -631,6 +694,7 @@ char *argv[];
 					}//FIN WHILE CONTENIDO
 
 					fclose(f);
+					fprintf(fd,"\nEnvío de del archivo %s finalizado.\n",argv[4]);
 
 				}//FIN FICHERO
 
@@ -653,6 +717,7 @@ char *argv[];
    			//Memset (aux, '\0', sizeof (aux)); 	//reset aux
 			mensaje[0] = aux[0] = '\0';
 
+			fprintf(fd,"\nDemanda de datos (Lectura por UDP): %s\n",argv[4]);
 
 			//Primero se mira si el cliente tiene el fichero para no sobreescribir
 			FILE *f;
@@ -668,6 +733,7 @@ char *argv[];
 			if(existe(ruta)){
 					//mensaje ERROR NO ENCONTRADO
 					printf("Cuidado, ya tiene un archivo con este nombre.\n"); //bloque 0
+					fprintf(fd,"\nError: Ya tiene \"%s\", no es posible sobreescribir.\n",argv[4]);
 					//break;
 			}else{
 
@@ -678,6 +744,7 @@ char *argv[];
 
 				while (n_retry > 0) {
 			        if (sendto (s, mensaje, strlen(mensaje), 0, (struct sockaddr *)&servaddr_in, sizeof(struct sockaddr_in)) == -1) {
+			        		fprintf(fd,"\nError: Fallo al enviar mensaje.\n");
 			        		perror(argv[0]);
 			        		fprintf(stderr, "%s: unable to send request\n", argv[0]);
 			        		exit(1);
@@ -712,19 +779,29 @@ char *argv[];
 
 
 				if(buf2[1] != '3'){
+
 					printf("No tiene el archivo.\n");
+					fprintf(fd,"\nError: Servidor no tiene \"%s\".\n",argv[4]);
+
 				}else{
+
+					fprintf(fd,"\nServidor acepta. Cliente comienza a recibir \"%s\".\n",argv[4]);
 
 					//COMENZAMOS A RECIBIR EL ARCHIVO POR BLOQUES
 
 					//Variables:
-					int j;
+					int j,k;
 					int tammen = 516;
-					
+					k = 1;
 
 					while(tammen == 516){
 
+						k++;
+						fprintf(fd,"\nHa llegado el bloque nº%d.\n",k);
+
 						tammen = strlen(buf2);
+
+						if(tammen != 516) fprintf(fd,"\nDescarga del archivo %s ha finalizado.\n",argv[4]);
 
 						if((f = fopen(ruta,"a")) == NULL){
 							perror("Fallo al crear/escribir documento.");
@@ -743,6 +820,7 @@ char *argv[];
 
 						while (n_retry > 0) {
 					        if (sendto (s, buf, strlen(buf), 0, (struct sockaddr *)&servaddr_in, sizeof(struct sockaddr_in)) == -1) {
+					        		fprintf(fd,"\nError: Fallo al enviar mensaje.\n");
 					        		perror(argv[0]);
 					        		fprintf(stderr, "%s: unable to send request\n", argv[0]);
 					        		exit(1);
