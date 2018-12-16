@@ -530,7 +530,7 @@ void serverTCP(int s, struct sockaddr_in clientaddr_in)
 
 				if((f = fopen(ruta,"a")) == NULL){
 					perror("Fallo al crear/escribir documento.");
-					fprintf(fp,"Objeto solicitado por cliente: %s -> No encontrado.\n", archivo);
+					fprintf(fp,"Error al recibir objeto de cliente: %s\n", archivo);
 
 				}else{
 					for (it = 4; it < tammen; ++it)
@@ -621,8 +621,8 @@ void serverUDP(int s, char * buffer, struct sockaddr_in clientaddr_in)
 
 	long timevar;			/* contains time returned by time() */
 	    
-	FILE *fp3;
-	fp3 = fopen("peticiones.log","a");
+	FILE *fp;
+	fp = fopen("peticiones.log","a");
 
 	if (inet_ntop(AF_INET, &(clientaddr_in.sin_addr), hostname, MAXHOST) == NULL){
 		perror(" inet_ntop \n");
@@ -632,7 +632,7 @@ void serverUDP(int s, char * buffer, struct sockaddr_in clientaddr_in)
 	                           hostname,MAXHOST,NULL,0,0);             //OBTENEMOS EL NOMBRE DEL SERVIDOR
 
 
-	fprintf(fp3,">>Host: %s,\tDireccion IP: %s,\tPuerto: %u,\tProtocolo: UDP,\tA las: %s\n",
+	fprintf(fp,">>Host: %s,\tDireccion IP: %s,\tPuerto: %u,\tProtocolo: UDP,\tA las: %s\n",
 			hostname, inet_ntoa(clientaddr_in.sin_addr), ntohs(clientaddr_in.sin_port), (char *) ctime(&timevar));
 
 	printf("%s<<<<<<<<<<<<<<<<<<",buffer);
@@ -652,7 +652,7 @@ void serverUDP(int s, char * buffer, struct sockaddr_in clientaddr_in)
 	char codigo[40];
 	int it,it2;
 	int tammen;
-	char archivo[100], mensaje[1024], ka[150], aux[1024];
+	char archivo[1024], mensaje[1024], ka[150], aux[1024];
 	/*mensaje[0]='\0'; //RESETEAMOS
 	archivo[0]='\0';
 	ruta[0]='\0';*/
@@ -676,7 +676,9 @@ void serverUDP(int s, char * buffer, struct sockaddr_in clientaddr_in)
 				buffer2[it2] = buffer[it];
 				it2++;
 			}
-			//tenemos el fichero en buffer2
+			//tenemos el fichero en buffer2 y lo metemos en archivo
+			memset (archivo, '\0', sizeof (archivo));
+			strcpy(archivo,buffer2);
 			//Establecemos ruta:
 			sprintf(ruta,"ficherosTFTPserver/");
 			strcat(ruta,buffer2);
@@ -684,6 +686,7 @@ void serverUDP(int s, char * buffer, struct sockaddr_in clientaddr_in)
 			if(!existe(ruta)){
 				//mensaje ERROR NO ENCONTRADO
 				sprintf(buffer2,"0506Error: Fichero no encontrado.0\n"); //bloque 0
+				fprintf(fp,"Objeto solicitado por cliente: %s -> No encontrado.\n", archivo);
 				break;
 			}
 
@@ -711,6 +714,7 @@ void serverUDP(int s, char * buffer, struct sockaddr_in clientaddr_in)
 			if (tammen != 512)	//FIN FICHERO
 			{
 				fclose(f);
+				fprintf(fp,"Objeto solicitado por cliente: %s -> Enviado correctamente.\n", archivo);
 				break;
 			}
 			
@@ -756,7 +760,9 @@ void serverUDP(int s, char * buffer, struct sockaddr_in clientaddr_in)
 				buffer2[it2] = buffer[it];
 				it2++;
 			}
-			//tenemos el fichero en buffer2
+			//tenemos el fichero en buffer2 y lo metemos en archivo
+			memset (archivo, '\0', sizeof (archivo));
+			strcpy(archivo,buffer2);
 			//Establecemos ruta:
 			sprintf(ruta,"ficherosTFTPserver/");
 			strcat(ruta,buffer2);
@@ -764,9 +770,11 @@ void serverUDP(int s, char * buffer, struct sockaddr_in clientaddr_in)
 			if(existe(ruta)){
 				//mensaje ERROR SOBREESCRITURA
 				sprintf(buffer2,"0506Error: No puede sobreescribir.0\n");
+				fprintf(fp,"Objeto recibido de cliente: %s -> Error: No se puede sobreescribir.\n", archivo);
 			}else{
 				//Mensaje confirmación
 				sprintf(buffer2,"0400"); //bloque 0
+				fprintf(fp,"Objeto recibido de cliente: %s -> Confirmado recibir.\n", archivo);
 			}
 
 		break;
@@ -778,6 +786,7 @@ void serverUDP(int s, char * buffer, struct sockaddr_in clientaddr_in)
 
 			if((f = fopen(ruta,"a")) == NULL){
 				perror("Fallo al crear/escribir documento.");
+				fprintf(fp,"Error al recibir objeto de cliente: %s\n", archivo);
 			}else{
 				for (it = 4; it < tammen; ++it)
 				{
@@ -794,6 +803,7 @@ void serverUDP(int s, char * buffer, struct sockaddr_in clientaddr_in)
 		default:
 			//mensaje error: no definido
 			sprintf(buffer2,"0500Error: No definido.0\n");
+			fprintf(fp,"Error: Petición de cliente no definida: %s\n", buf);
 
 
 
@@ -833,8 +843,8 @@ void serverUDP(int s, char * buffer, struct sockaddr_in clientaddr_in)
      //freeaddrinfo(res);
 
 	printf("\n%s\n\n",buffer2);
-	fprintf(fp3,"\nConexion cerrada\n\n\n");
-	fclose(fp3);
+	fprintf(fp,"\nConexion cerrada\n\n\n");
+	fclose(fp);
 	nc = sendto (s, buffer2, sizeof(buffer2), 0, (struct sockaddr *)&clientaddr_in, addrlen);
 	if ( nc == -1) {
 		 perror("serverUDP");
